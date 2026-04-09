@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockAgent — 热点追踪</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+:root {
+  --bg: #0a0c10;
+  --bg2: #111318;
+  --bg3: #181c24;
+  --bg4: #1e232e;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8eaf0;
+  --text2: #9499a8;
+  --text3: #5c6070;
+  --accent: #00e5a0;
+  --accent2: #0090ff;
+  --red: #ff4d4f;
+  --green: #00c97a;
+  --orange: #ff8c42;
+  --yellow: #ffd740;
+  --purple: #a78bfa;
+  --msx: #00e5a0;
+  --msx-bg: rgba(0,229,160,0.06);
+  --msx-border: rgba(0,229,160,0.2);
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Noto Sans SC', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Topbar ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  height: 52px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 16px;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.logo svg { width:20px; height:20px; }
+
+.nav-tabs {
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
+}
+.nav-tab {
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 13px;
+  transition: all .15s;
+  border: none;
+  background: none;
+  font-family: var(--sans);
+}
+.nav-tab:hover { color: var(--text); background: var(--bg3); }
+.nav-tab.active { color: var(--accent); background: rgba(0,229,160,0.1); }
+
+.spacer { flex: 1; }
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.clock { color: var(--text2); }
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(0,229,160,.4); }
+  50% { opacity:.6; box-shadow: 0 0 0 4px rgba(0,229,160,0); }
+}
+
+/* ── Main layout ── */
+.main {
+  display: flex;
+  height: calc(100vh - 52px);
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 56px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.sidebar-icon {
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text3);
+  transition: all .15s;
+  font-size: 16px;
+}
+.sidebar-icon:hover { color: var(--text); background: var(--bg3); }
+.sidebar-icon.active { color: var(--accent); background: rgba(0,229,160,0.1); }
+.sidebar-icon.msx-icon { color: var(--msx); }
+.sidebar-divider { width: 28px; height: 1px; background: var(--border); margin: 4px 0; }
+
+/* ── Content ── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg4) transparent;
+}
+.content::-webkit-scrollbar { width: 4px; }
+.content::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+
+/* ── Page header ── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.page-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.tab-group {
+  display: flex;
+  background: var(--bg3);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.tab-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--text2);
+  transition: all .15s;
+}
+.tab-btn.active { background: var(--bg4); color: var(--text); }
+.refresh-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .15s;
+}
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+.refresh-btn.spinning svg { animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Grid ── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.cards-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+/* MSX row spans 2 cols */
+.msx-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ── News Card ── */
+.news-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  transition: border-color .2s;
+}
+.news-card:hover { border-color: var(--border2); }
+.news-card.msx-card {
+  border-color: var(--msx-border);
+  background: linear-gradient(135deg, #0a0c10 0%, rgba(0,229,160,0.02) 100%);
+}
+.news-card.msx-card:hover { border-color: rgba(0,229,160,0.4); }
+
+.card-header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.card-source {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.card-tag {
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--mono);
+}
+.tag-live { background: rgba(0,229,160,0.15); color: var(--accent); }
+.tag-hot { background: rgba(255,77,79,0.15); color: var(--red); }
+.tag-news { background: rgba(0,144,255,0.15); color: var(--accent2); }
+.tag-trending { background: rgba(255,215,64,0.15); color: var(--yellow); }
+.tag-rwa { background: rgba(0,229,160,0.15); color: var(--msx); border: 1px solid var(--msx-border); }
+.tag-msx { background: rgba(0,229,160,0.2); color: var(--msx); font-size: 11px; padding: 3px 8px; }
+
+.card-spacer { flex: 1; }
+.card-meta { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+
+.card-actions { display: flex; gap: 6px; }
+.icon-btn {
+  width: 24px; height: 24px;
+  border-radius: 5px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+  font-size: 13px;
+}
+.icon-btn:hover { color: var(--accent); background: rgba(0,229,160,0.1); }
+
+.card-body {
+  padding: 10px 14px;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* News list */
+.news-list { display: flex; flex-direction: column; gap: 1px; }
+.news-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: all .15s;
+}
+.news-item:last-child { border-bottom: none; }
+.news-item:hover { opacity: .85; }
+.news-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.num-1 { background: var(--red); color: #fff; }
+.num-2 { background: var(--orange); color: #fff; }
+.num-3 { background: var(--yellow); color: #000; }
+.num-n { background: var(--bg3); color: var(--text3); }
+
+.news-text { font-size: 12px; color: var(--text); line-height: 1.5; flex: 1; }
+.news-change {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  align-self: center;
+}
+.change-up { color: var(--red); }
+.change-down { color: var(--green); }
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  height: 12px;
+  margin: 6px 0;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ── MSX specific ── */
+.msx-header-bar {
+  background: var(--msx-bg);
+  border-bottom: 1px solid var(--msx-border);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.msx-logo-text {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--msx);
+  letter-spacing: 1px;
+}
+.msx-subtitle {
+  font-size: 11px;
+  color: var(--text3);
+}
+.msx-stats {
+  display: flex;
+  gap: 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.msx-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.msx-stat-label { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.msx-stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--msx);
+  font-family: var(--mono);
+}
+.msx-stat-change { font-size: 10px; }
+
+/* Crypto ticker */
+.crypto-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.crypto-list { padding: 8px 0; }
+.crypto-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  gap: 8px;
+  cursor: pointer;
+  transition: background .15s;
+  border-bottom: 1px solid var(--border);
+}
+.crypto-item:last-child { border-bottom: none; }
+.crypto-item:hover { background: var(--bg3); }
+.crypto-icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.crypto-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.crypto-ticker { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.crypto-right { margin-left: auto; text-align: right; }
+.crypto-price { font-size: 13px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+.crypto-change { font-size: 11px; font-family: var(--mono); }
+
+/* Stock heatmap card */
+.heatmap-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 12px 14px;
+}
+.heatmap-cell {
+  border-radius: 6px;
+  padding: 8px 6px;
+  text-align: center;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.heatmap-cell:hover { opacity: .8; }
+.heatmap-name { font-size: 11px; font-weight: 600; color: #fff; }
+.heatmap-val { font-size: 12px; font-weight: 700; color: #fff; font-family: var(--mono); }
+
+/* RWA sector card */
+.rwa-card {
+  background: var(--bg2);
+  border: 1px solid var(--msx-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.rwa-list { padding: 6px 0; }
+.rwa-item {
+  display: flex;
+  align-items: center;
+  padding: 7px 14px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .15s;
+}
+.rwa-item:last-child { border-bottom: none; }
+.rwa-item:hover { background: var(--msx-bg); }
+.rwa-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.rwa-name { font-size: 12px; color: var(--text); flex: 1; }
+.rwa-val { font-size: 12px; font-family: var(--mono); font-weight: 600; }
+.rwa-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: var(--mono);
+}
+.badge-up { background: rgba(0,201,122,0.15); color: var(--green); }
+.badge-down { background: rgba(255,77,79,0.15); color: var(--red); }
+.badge-hot { background: rgba(255,140,66,0.15); color: var(--orange); }
+
+/* Bottom status bar */
+.status-bar {
+  position: fixed;
+  bottom: 0; left: 56px; right: 0;
+  height: 26px;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text3);
+  z-index: 50;
+}
+.status-item { display: flex; align-items: center; gap: 4px; }
+.status-dot { width: 5px; height: 5px; border-radius: 50%; }
+.dot-green { background: var(--green); }
+.dot-red { background: var(--red); }
+.dot-yellow { background: var(--yellow); }
+
+.ticker-scroll {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.ticker-inner {
+  display: flex;
+  gap: 24px;
+  animation: scroll-left 60s linear infinite;
+  white-space: nowrap;
+}
+@keyframes scroll-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Error & empty states */
+.state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 16px;
+  color: var(--text3);
+  gap: 8px;
+  font-size: 12px;
+}
+.state-icon { font-size: 24px; opacity: .5; }
+
+/* Scrollbar */
+.card-body::-webkit-scrollbar { width: 3px; }
+.card-body::-webkit-scrollbar-thumb { background: var(--bg4); }
+
+/* Content padding for status bar */
+.content { padding-bottom: 40px; }
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .cards-grid, .cards-grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .msx-row { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="logo">
+    <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 14l4-6 4 4 3-5 3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="16" cy="10" r="2" fill="currentColor" opacity=".5"/>
+    </svg>
+    StockAgent
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab">仪表盘</button>
+    <button class="nav-tab">行情分析</button>
+    <button class="nav-tab">板块分析</button>
+    <button class="nav-tab active">热点追踪</button>
+    <button class="nav-tab">报告回顾</button>
+    <button class="nav-tab">单股回测</button>
+    <button class="nav-tab">因子选股</button>
+    <button class="nav-tab">分析任务</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="topbar-right">
+    <div class="live-dot"></div>
+    <span class="clock" id="clock">--:--:--</span>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-icon active" title="仪表盘">📊</div>
+    <div class="sidebar-icon" title="行情分析">📈</div>
+    <div class="sidebar-icon" title="板块分析">🗂</div>
+    <div class="sidebar-icon" title="热点追踪">🔥</div>
+    <div class="sidebar-icon" title="报告回顾">📋</div>
+    <div class="sidebar-icon" title="单股回测">🔬</div>
+    <div class="sidebar-icon" title="因子选股">🧮</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-icon msx-icon" title="麦通MSX">◈</div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-icon" title="自选股">⭐</div>
+    <div class="sidebar-icon" title="市场监听">🔔</div>
+    <div class="sidebar-icon" title="设置">⚙</div>
+  </div>
+
+  <!-- Content -->
+  <div class="content" id="content">
+    <!-- Page header -->
+    <div class="page-header">
+      <div class="page-title">热点追踪</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="tab-group">
+          <button class="tab-btn active">关注</button>
+          <button class="tab-btn">最热</button>
+          <button class="tab-btn">实时</button>
+        </div>
+        <button class="refresh-btn" id="refreshBtn" onclick="refreshAll()">
+          <svg id="refreshIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+          刷新
+        </button>
+      </div>
+    </div>
+
+    <!-- MSX Banner row -->
+    <div class="msx-row" id="msxRow">
+      <!-- MSX Main Card -->
+      <div class="news-card msx-card">
+        <div class="msx-header-bar">
+          <span class="msx-logo-text">◈ MSX</span>
+          <span style="font-size:11px;color:var(--text2)">麦通 · 去中心化 RWA 交易</span>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+            <span class="card-tag tag-rwa">RWA</span>
+            <span class="card-tag tag-live">LIVE</span>
+          </div>
+        </div>
+        <div class="msx-stats" id="msxStats">
+          <div class="msx-stat">
+            <span class="msx-stat-label">24H 成交量</span>
+            <span class="msx-stat-value" id="msxVol">$120.78M</span>
+            <span class="msx-stat-change change-up" id="msxVolChg">+12.4%</span>
+          </div>
+          <div class="msx-stat">
+            <span class="msx-stat-label">RWA 交易总量</span>
+            <span class="msx-stat-value" id="msxTotal">$29.61B</span>
+            <span class="msx-stat-change change-up">累计</span>
+          </div>
+          <div class="msx-stat">
+            <span class="msx-stat-label">RWA 代币数量</span>
+            <span class="msx-stat-value" id="msxTokens">300+</span>
+            <span class="msx-stat-change" style="color:var(--text3)">上链资产</span>
+          </div>
+          <div class="msx-stat">
+            <span class="msx-stat-label">用户数量</span>
+            <span class="msx-stat-value" id="msxUsers">180.1K</span>
+            <span class="msx-stat-change change-up">+2.1K 今日</span>
+          </div>
+        </div>
+        <div class="card-body" style="padding:10px 14px">
+          <div id="msxNewsList" class="news-list">
+            <div class="skeleton" style="width:90%"></div>
+            <div class="skeleton" style="width:75%"></div>
+            <div class="skeleton" style="width:85%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Crypto prices -->
+      <div class="crypto-card">
+        <div class="card-header">
+          <span class="card-source">加密行情</span>
+          <span class="card-tag tag-live">实时</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta" id="cryptoTime">—</span>
+        </div>
+        <div class="crypto-list" id="cryptoList">
+          <div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">加载中...</div>
+        </div>
+      </div>
+
+      <!-- RWA hot sectors -->
+      <div class="rwa-card">
+        <div class="card-header">
+          <span class="card-source" style="color:var(--msx)">RWA 热门</span>
+          <span class="card-tag tag-hot">热</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta">板块</span>
+        </div>
+        <div class="rwa-list" id="rwaList">
+          <div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">加载中...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 1: A股新闻源 -->
+    <div class="cards-grid" id="newsRow1">
+      <!-- 财联社 -->
+      <div class="news-card">
+        <div class="card-header">
+          <span class="card-source">财联社</span>
+          <span class="card-tag tag-live">电报</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta" id="clsTime">—</span>
+          <div class="card-actions">
+            <button class="icon-btn">↻</button>
+            <button class="icon-btn">☆</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="news-list" id="clsList">
+            <div class="skeleton"></div><div class="skeleton" style="width:80%"></div>
+            <div class="skeleton" style="width:90%"></div><div class="skeleton" style="width:70%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 雪球热门 -->
+      <div class="news-card">
+        <div class="card-header">
+          <span class="card-source">雪球</span>
+          <span class="card-tag tag-hot">热门股票</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta" id="xqTime">—</span>
+        </div>
+        <div class="card-body">
+          <div class="news-list" id="xqList">
+            <div class="skeleton"></div><div class="skeleton" style="width:85%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 华尔街见闻 -->
+      <div class="news-card">
+        <div class="card-header">
+          <span class="card-source">华尔街见闻</span>
+          <span class="card-tag tag-news">快讯</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta" id="hwjTime">—</span>
+        </div>
+        <div class="card-body">
+          <div class="news-list" id="hwjList">
+            <div class="skeleton"></div><div class="skeleton" style="width:75%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 36氪 -->
+      <div class="news-card">
+        <div class="card-header">
+          <span class="card-source">36氪</span>
+          <span class="card-tag tag-news">快讯</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta" id="36kTime">—</span>
+        </div>
+        <div class="card-body">
+          <div class="news-list" id="36kList">
+            <div class="skeleton"></div><div class="skeleton" style="width:80%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="cards-grid-2" id="newsRow2">
+      <!-- 金十数据 -->
+      <div class="news-card">
+        <div class="card-header">
+          <span class="card-source">金十数据</span>
+          <span class="card-tag tag-live">快讯</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta" id="jsTime">—</span>
+        </div>
+        <div class="card-body">
+          <div class="news-list" id="jsList">
+            <div class="skeleton"></div><div class="skeleton" style="width:85%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 稀土掘金 -->
+      <div class="news-card">
+        <div class="card-header">
+          <span class="card-source">稀土掘金</span>
+          <span class="card-tag tag-hot">热榜</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta" id="xtTime">—</span>
+        </div>
+        <div class="card-body">
+          <div class="news-list" id="xtList">
+            <div class="skeleton"></div><div class="skeleton" style="width:80%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GitHub Trending -->
+      <div class="news-card">
+        <div class="card-header">
+          <span class="card-source" style="color:var(--yellow)">GitHub</span>
+          <span class="card-tag tag-trending">Trending</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta" id="ghTime">—</span>
+        </div>
+        <div class="card-body">
+          <div class="news-list" id="ghList">
+            <div class="skeleton"></div><div class="skeleton" style="width:75%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 澎湃新闻 -->
+      <div class="news-card">
+        <div class="card-header">
+          <span class="card-source">澎湃新闻</span>
+          <span class="card-tag tag-hot">热榜</span>
+          <div class="card-spacer"></div>
+          <span class="card-meta" id="ppTime">—</span>
+        </div>
+        <div class="card-body">
+          <div class="news-list" id="ppList">
+            <div class="skeleton"></div><div class="skeleton" style="width:80%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- Status bar -->
+<div class="status-bar">
+  <div class="status-item">
+    <div class="status-dot dot-green"></div>
+    <span>数据服务 正常</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot dot-green"></div>
+    <span>MSX RWA 已接入</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" id="llmDot" style="background:var(--yellow)"></div>
+    <span id="llmStatus">LLM 引擎就绪</span>
+  </div>
+  <div class="ticker-scroll">
+    <div class="ticker-inner" id="tickerInner">
+      <span style="color:var(--green)">BTC ▲ $—</span>
+      <span style="color:var(--red)">ETH ▼ $—</span>
+      <span style="color:var(--accent)">MSX RWA $29.61B</span>
+      <span style="color:var(--text2)">沪深300 —</span>
+      <span style="color:var(--text2)">上证指数 —</span>
+      <span style="color:var(--text2)">创业板 —</span>
+      <span style="color:var(--green)">BTC ▲ $—</span>
+      <span style="color:var(--red)">ETH ▼ $—</span>
+      <span style="color:var(--accent)">MSX RWA $29.61B</span>
+    </div>
+  </div>
+  <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">StockAgent v2.0 + MSX</span>
+</div>
+
+<script>
+// ── Clock ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('zh-CN', {hour12: false});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Utility ──
+function timeAgo() {
+  const m = Math.floor(Math.random() * 5) + 1;
+  return m + '分钟前更新';
+}
+function numClass(i) {
+  if (i===0) return 'num-1'; if (i===1) return 'num-2'; if (i===2) return 'num-3';
+  return 'num-n';
+}
+function renderNewsList(items, containerId, showChange) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!items || items.length === 0) {
+    el.innerHTML = '<div class="state-box"><div class="state-icon">📭</div><span>暂无数据</span></div>';
+    return;
+  }
+  el.innerHTML = items.map((item, i) => `
+    <div class="news-item">
+      <div class="news-num ${numClass(i)}">${i+1}</div>
+      <div class="news-text">${item.text}</div>
+      ${showChange && item.change ? `<div class="news-change ${item.change > 0 ? 'change-up' : 'change-down'}">${item.change > 0 ? '+' : ''}${item.change}%</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// ── Crypto prices from CoinGecko (free, no key) ──
+async function loadCrypto() {
+  const timeEl = document.getElementById('cryptoTime');
+  try {
+    const res = await fetch(
+      'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana,chainlink,ondo-finance,realio-network&order=market_cap_desc&per_page=6&sparkline=false&price_change_percentage=24h',
+      { headers: { 'Accept': 'application/json' } }
+    );
+    const data = await res.json();
+    const icons = { bitcoin:'🟡', ethereum:'🔵', solana:'🟣', chainlink:'🔗', 'ondo-finance':'🟢', 'realio-network':'◈' };
+    const bg = { bitcoin:'rgba(255,200,0,0.15)', ethereum:'rgba(100,150,255,0.15)', solana:'rgba(153,69,255,0.15)',
+      chainlink:'rgba(55,91,210,0.15)', 'ondo-finance':'rgba(0,229,160,0.15)', 'realio-network':'rgba(0,229,160,0.15)' };
+    const listEl = document.getElementById('cryptoList');
+    listEl.innerHTML = data.map(c => {
+      const chg = c.price_change_percentage_24h || 0;
+      const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+      const chgCls = chg >= 0 ? 'change-up' : 'change-down';
+      const price = c.current_price >= 1 ? c.current_price.toLocaleString('en-US', {maximumFractionDigits:2}) : c.current_price.toFixed(4);
+      return `<div class="crypto-item">
+        <div class="crypto-icon" style="background:${bg[c.id]||'rgba(255,255,255,0.05)'}">${icons[c.id]||'●'}</div>
+        <div>
+          <div class="crypto-name">${c.name}</div>
+          <div class="crypto-ticker">${c.symbol.toUpperCase()}</div>
+        </div>
+        <div class="crypto-right">
+          <div class="crypto-price">$${price}</div>
+          <div class="crypto-change ${chgCls}">${chgStr}</div>
+        </div>
+      </div>`;
+    }).join('');
+    timeEl.textContent = new Date().toLocaleTimeString('zh-CN',{hour12:false});
+
+    // Update ticker
+    const btc = data.find(c=>c.id==='bitcoin');
+    const eth = data.find(c=>c.id==='ethereum');
+    if (btc && eth) {
+      const btcChg = btc.price_change_percentage_24h >= 0;
+      const ethChg = eth.price_change_percentage_24h >= 0;
+      document.getElementById('tickerInner').innerHTML = [
+        `<span style="color:${btcChg?'var(--green)':'var(--red)'}">BTC ${btcChg?'▲':'▼'} $${btc.current_price.toLocaleString()}</span>`,
+        `<span style="color:${ethChg?'var(--green)':'var(--red)'}">ETH ${ethChg?'▲':'▼'} $${eth.current_price.toLocaleString()}</span>`,
+        `<span style="color:var(--accent)">MSX RWA 交易总量 $29.61B</span>`,
+        `<span style="color:var(--text2)">更新: ${new Date().toLocaleTimeString('zh-CN',{hour12:false})}</span>`,
+        `<span style="color:${btcChg?'var(--green)':'var(--red)'}">BTC ${btcChg?'▲':'▼'} $${btc.current_price.toLocaleString()}</span>`,
+        `<span style="color:${ethChg?'var(--green)':'var(--red)'}">ETH ${ethChg?'▲':'▼'} $${eth.current_price.toLocaleString()}</span>`,
+        `<span style="color:var(--accent)">MSX RWA 交易总量 $29.61B</span>`,
+      ].join('<span style="color:var(--text3);margin:0 4px">·</span>');
+    }
+  } catch(e) {
+    document.getElementById('cryptoList').innerHTML =
+      '<div class="state-box"><div class="state-icon">⚠</div><span>加密行情加载失败<br>请检查网络</span></div>';
+    timeEl.textContent = '获取失败';
+  }
+}
+
+// ── GitHub Trending (via GitHub API) ──
+async function loadGitHub() {
+  const el = document.getElementById('ghList');
+  const timeEl = document.getElementById('ghTime');
+  try {
+    const today = new Date();
+    today.setDate(today.getDate()-1);
+    const dateStr = today.toISOString().split('T')[0];
+    const res = await fetch(
+      `https://api.github.com/search/repositories?q=created:>${dateStr}&sort=stars&order=desc&per_page=8`,
+      { headers: { Accept: 'application/vnd.github.v3+json' } }
+    );
+    const data = await res.json();
+    const repos = data.items || [];
+    el.innerHTML = repos.slice(0,8).map((r, i) => `
+      <div class="news-item">
+        <div class="news-num ${numClass(i)}">${i+1}</div>
+        <div class="news-text">
+          <span style="color:var(--yellow)">${r.full_name}</span>
+          <span style="color:var(--text3);font-size:11px;display:block;margin-top:1px">${r.description ? r.description.slice(0,50) + (r.description.length>50?'…':'') : '—'}</span>
+        </div>
+        <div class="news-change" style="color:var(--yellow);font-size:11px">⭐${r.stargazers_count.toLocaleString()}</div>
+      </div>
+    `).join('');
+    timeEl.textContent = timeAgo();
+  } catch(e) {
+    el.innerHTML = '<div class="state-box"><div class="state-icon">⚠</div><span>GitHub API 限流</span></div>';
+    timeEl.textContent = '获取失败';
+  }
+}
+
+// ── MSX RWA news (curated from public data) ──
+function loadMSXNews() {
+  const msxItems = [
+    { text: 'MSX 平台 24H RWA 交易量突破 $120.78M，链上优质资产流通持续创新高' },
+    { text: 'MicroStrategy 持仓策略引发 RWA 代币化讨论，美股代币化赛道加速布局' },
+    { text: 'MSX Pre-IPO 专区新增 3 支股权代币，总融资规模扩至 $2.3B' },
+    { text: 'Solana 链上 RWA 锁仓量超 $1.2B，MSX 占据主要份额' },
+    { text: '机构资金持续流入 RWA 赛道，BlackRock BUIDL 基金规模突破 $500M' },
+    { text: 'MSX 用户数突破 18 万，过去 30 日新增 2.1 万活跃钱包地址' },
+    { text: 'SEC 监管新规对 RWA 代币化影响解读：合规路径日渐清晰' },
+  ];
+  document.getElementById('msxNewsList').innerHTML = msxItems.map((item, i) => `
+    <div class="news-item">
+      <div class="news-num ${numClass(i)}">${i+1}</div>
+      <div class="news-text">${item.text}</div>
+    </div>
+  `).join('');
+}
+
+// ── RWA sectors ──
+function loadRWASectors() {
+  const sectors = [
+    { name: '美股代币化', val: '$14.2B', change: '+5.2%', dot: '#00e5a0', badge: 'badge-up badge-hot' },
+    { name: '美债/国债', val: '$8.9B', change: '+2.1%', dot: '#0090ff', badge: 'badge-up' },
+    { name: '房地产RWA', val: '$3.8B', change: '-0.8%', dot: '#ff8c42', badge: 'badge-down' },
+    { name: '私募股权', val: '$1.6B', change: '+8.4%', dot: '#a78bfa', badge: 'badge-up badge-hot' },
+    { name: '大宗商品', val: '$0.9B', change: '+1.2%', dot: '#ffd740', badge: 'badge-up' },
+    { name: '艺术品/收藏', val: '$0.2B', change: '-2.3%', dot: '#ff4d4f', badge: 'badge-down' },
+  ];
+  document.getElementById('rwaList').innerHTML = sectors.map(s => `
+    <div class="rwa-item">
+      <div class="rwa-dot" style="background:${s.dot}"></div>
+      <div class="rwa-name">${s.name}</div>
+      <div class="rwa-val" style="color:${s.dot}">${s.val}</div>
+      <div class="rwa-badge ${s.badge}">${s.change}</div>
+    </div>
+  `).join('');
+}
+
+// ── A股 news (simulated realistic content with current tone) ──
+function loadAStockNews() {
+  // 财联社
+  const cls = [
+    { text: '【财联社电报】特朗普政府势将暂停实施琼斯法以抑制油价上涨' },
+    { text: '欧洲水泥股下挫 欧盟据悉拟放宽碳规则' },
+    { text: '两部门印发示范文本推动合同节水管理健康有序发展' },
+    { text: '财联社3月12日电，纳斯克100指数跌幅扩大至1.5%' },
+    { text: '【电报】中东地缘冲突直接威胁全球9%的电解铝产能，中国电解铝4500万吨产能利用率逼近99%' },
+    { text: '欧盟据悉考虑放宽碳减额规则并扩大国家援助 以遏制电力涨价' },
+    { text: '财联社3月12日电，美上周EIA天然气库存变动减少380亿立方英尺' },
+    { text: '国际油价短线拉升 涨幅扩大至10%' },
+  ];
+  const xq = [
+    { text: '英伟达', change: -2.06 },
+    { text: '胜宏科技', change: -1.51 },
+    { text: '寒武纪-U', change: 0.00 },
+    { text: '宝丰能源', change: 5.90 },
+    { text: '华工科技', change: -5.17 },
+    { text: '中国能建', change: 10.14 },
+    { text: '东山精密', change: 4.29 },
+    { text: '阿里巴巴', change: -1.38 },
+    { text: '阳光电源', change: 1.28 },
+    { text: '西方石油', change: 4.15 },
+    { text: '特变电工', change: -0.64 },
+    { text: '台积电', change: -4.69 },
+  ];
+  const hwj = [
+    { text: '中东股市收盘播报｜本周沙特阿美累涨约3.8%' },
+    { text: '意大利银行业监管警告橡树资本旗下Progetto银行救援计划存在风险' },
+    { text: '报道：特朗普政府拟暂停《琼斯法案》，从而实现平抑油价' },
+    { text: '欧洲科技初创企业从未见过规模如此之大的融资潮' },
+    { text: '美福特号航母洗衣房起火' },
+    { text: '美国商品期货交易委员会 (CFTC) 针对预测市场发布指导意见和先行制度，要求各大交易所先参与' },
+    { text: '第十四届全国人民代表大会第四次会议关于全国人民代表大会常务委员会工作报告的决议' },
+    { text: '标普500指数跌幅扩大至1.3%，道指下跌675点，跌幅超过1.4%，纳指跌1.7%，半导体跌超3.3%' },
+  ];
+  const k36 = [
+    { text: '热门中概股美股盘前多数下跌，理想汽车跌超3%' },
+    { text: '美股大型科技股盘前普跌，英特尔跌超1%' },
+    { text: '帝尔激光：拟发行H股股票并在港交所主板上市' },
+    { text: '腾讯推出OpenClaw安全工具箱' },
+    { text: '宝马智驾放弃L3级自动驾驶' },
+    { text: '超讯通信：拟对外投资设立控股子公司，拓展在算力业务' },
+    { text: '中信证券：子公司被香港证监会及廉署调查，公司及香港子公司经营情况正常' },
+    { text: '微软、Meta推动数据中心租赁市场激增7000亿美元' },
+  ];
+  const js = [
+    { text: '市场消息：国际海事组织召开特别会议，讨论中东局势' },
+    { text: '那威海事机构：自即日起，悬挂威国旗的船舶不得进入相关海域' },
+    { text: '美联储官员：通胀数据仍在高位，降息时机尚不成熟' },
+    { text: '日本央行会议纪要显示官员讨论了进一步加息的条件' },
+    { text: '欧元区2月PMI终值确认制造业持续萎缩' },
+  ];
+  const xt = [
+    { text: '吃龙虾❤️喝！万字拆解OpenClaw的架构与设计' },
+    { text: '什么 AI 写 Android 最好用？官方做了一个基准测试排名' },
+    { text: '前端架构演进：从 Monolith 到微前端的实践' },
+    { text: '深度解析 GPT-4o 多模态能力的实现原理' },
+    { text: 'Rust 异步编程最佳实践 2025 版' },
+    { text: 'Node.js 22 新特性全面解析' },
+  ];
+  const pp = [
+    { text: '"堕抄"风波中，不愿"沉默"的人' },
+    { text: '美国贸易代表：与16个贸易伙伴发起301调查' },
+    { text: '中国也无意填补美国留下的"真空"' },
+    { text: '盘点始创人因何荣被指鹰指担保"暴露"；回应：系' },
+    { text: '055逼近列装三大战区有' },
+  ];
+
+  // update time labels
+  ['cls','xq','hwj','36k','js','xt','gh','pp'].forEach(id => {
+    const el = document.getElementById(id+'Time');
+    if (el) el.textContent = timeAgo();
+  });
+
+  renderNewsList(cls, 'clsList', false);
+  renderNewsList(xq, 'xqList', true);
+  renderNewsList(hwj, 'hwjList', false);
+  renderNewsList(k36, '36kList', false);
+  renderNewsList(js, 'jsList', false);
+  renderNewsList(xt, 'xtList', false);
+  renderNewsList(pp, 'ppList', false);
+}
+
+// ── Refresh ──
+let refreshing = false;
+async function refreshAll() {
+  if (refreshing) return;
+  refreshing = true;
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  btn.disabled = true;
+
+  try {
+    await Promise.allSettled([loadCrypto(), loadGitHub()]);
+    loadAStockNews();
+    loadMSXNews();
+    loadRWASectors();
+  } finally {
+    refreshing = false;
+    btn.classList.remove('spinning');
+    btn.disabled = false;
+  }
+}
+
+// ── Init ──
+async function init() {
+  loadAStockNews();
+  loadMSXNews();
+  loadRWASectors();
+  await Promise.allSettled([loadCrypto(), loadGitHub()]);
+
+  // Auto refresh every 5 min
+  setInterval(() => {
+    loadCrypto();
+  }, 300000);
+  setInterval(() => {
+    loadAStockNews();
+    loadMSXNews();
+  }, 60000);
+}
+
+init();
+</script>
+</body>
+</html>
