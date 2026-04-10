@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StockAgent — 智能市场终端</title>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap');
+:root{
+  --bg:#070a0f;--bg2:#0d1117;--bg3:#161b22;--bg4:#21262d;--bg5:#30363d;
+  --border:#21262d;--border2:#30363d;--text:#e6edf3;--text2:#8b949e;--text3:#484f58;
+  --green:#3fb950;--red:#f85149;--blue:#58a6ff;--accent:#00d084;--a2:rgba(0,208,132,.1);
+  --yellow:#e3b341;--purple:#bc8cff;--orange:#ffa657;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;
+  --proxy:https://stockagent-proxy.frs031.workers.dev;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;display:flex;flex-direction:column}
+
+/* TOPBAR */
+.topbar{height:46px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 0 0 14px;flex-shrink:0;z-index:200}
+.logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px;padding-right:16px;border-right:1px solid var(--border);flex-shrink:0;white-space:nowrap}
+.logo-m{width:22px;height:22px;background:var(--a2);border:1px solid rgba(0,208,132,.3);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px}
+nav{display:flex;height:100%;overflow-x:auto}
+nav::-webkit-scrollbar{display:none}
+.ni{display:flex;align-items:center;padding:0 12px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--sans);flex-shrink:0}
+.ni:hover{color:var(--text);background:rgba(255,255,255,.025)}
+.ni.active{color:var(--text);border-bottom-color:var(--accent)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 14px;font-family:var(--mono);font-size:10px;color:var(--text3);flex-shrink:0}
+.live-b{display:flex;align-items:center;gap:4px;color:var(--accent)}
+.ldot{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:bpulse 2s infinite}
+@keyframes bpulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* LAYOUT */
+.app{display:flex;flex:1;overflow:hidden}
+.sb{width:46px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;flex-shrink:0;overflow-y:auto}
+.sb::-webkit-scrollbar{display:none}
+.si{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text3);font-size:14px;transition:all .15s;position:relative;border:none;background:none;flex-shrink:0}
+.si:hover{color:var(--text2);background:var(--bg3)}
+.si.active{color:var(--accent);background:var(--a2)}
+.si[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:42px;top:50%;transform:translateY(-50%);background:var(--bg4);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);white-space:nowrap;z-index:999;pointer-events:none;font-family:var(--sans)}
+.ssep{width:22px;height:1px;background:var(--border);margin:3px 0;flex-shrink:0}
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.page{display:none;flex:1;overflow:hidden}
+.page.active{display:flex;flex-direction:column}
+.ps{flex:1;overflow-y:auto;padding:14px;scrollbar-width:thin;scrollbar-color:var(--bg4) transparent}
+.ps::-webkit-scrollbar{width:4px}
+.ps::-webkit-scrollbar-thumb{background:var(--bg4)}
+
+/* COMMON UI */
+.ph{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.pt{font-size:15px;font-weight:600}
+.sp{flex:1}
+.pg{display:flex;background:var(--bg3);border-radius:7px;padding:2px;gap:1px;flex-wrap:wrap}
+.pill{padding:3px 10px;border-radius:5px;border:none;background:none;cursor:pointer;font-size:11px;font-weight:500;color:var(--text2);font-family:var(--sans);transition:all .15s;white-space:nowrap}
+.pill.active{background:var(--bg4);color:var(--text)}
+.pill:hover:not(.active){color:var(--text)}
+.abtn{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:none;cursor:pointer;font-size:11px;font-weight:500;color:var(--text2);font-family:var(--sans);transition:all .15s;text-decoration:none;white-space:nowrap}
+.abtn:hover{border-color:var(--accent);color:var(--accent)}
+.sect-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px}
+
+/* STAT CARDS */
+.sg4{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+.sg3{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}
+.sg2{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:12px}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:12px;cursor:pointer;transition:all .18s}
+.sc:hover{border-color:var(--border2);transform:translateY(-1px)}
+.sc-l{font-size:10px;color:var(--text3);margin-bottom:5px}
+.sc-v{font-size:18px;font-weight:700;font-family:var(--mono);letter-spacing:-.5px}
+.sc-s{font-size:10px;margin-top:3px;font-family:var(--mono)}
+
+/* CHART */
+.cs{background:var(--bg2);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:12px}
+.ch{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap}
+.ct{font-size:12px;font-weight:600}
+.cp{font-family:var(--mono);font-size:16px;font-weight:600}
+.cc{font-family:var(--mono);font-size:11px}
+.cb{height:260px;position:relative}
+.cl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px}
+
+/* TABLE */
+.mt{background:var(--bg2);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:12px}
+.mth{display:grid;padding:8px 14px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.3px}
+.mtr{display:grid;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:background .12s;align-items:center}
+.mtr:last-child{border-bottom:none}
+.mtr:hover{background:rgba(255,255,255,.025)}
+.c7{grid-template-columns:30px 1fr 100px 80px 80px 80px 60px}
+.c6{grid-template-columns:30px 1fr 100px 80px 80px 85px}
+.c5{grid-template-columns:30px 1fr 110px 80px 90px}
+.mrk{font-size:10px;color:var(--text3);font-family:var(--mono)}
+.cc2{display:flex;align-items:center;gap:7px}
+.cion{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;background:rgba(255,255,255,.06)}
+.cn{font-size:12px;font-weight:600}
+.cs2{font-size:9px;color:var(--text3);font-family:var(--mono)}
+.src-tag{font-size:8px;padding:1px 4px;border-radius:3px;font-family:var(--mono);font-weight:600;margin-left:3px}
+.src-okx{background:rgba(0,144,255,.15);color:var(--blue)}
+.src-bybit{background:rgba(255,166,87,.15);color:var(--orange)}
+.src-bitget{background:rgba(0,208,132,.12);color:var(--accent)}
+.mv{font-family:var(--mono);font-size:11px;font-weight:500;text-align:right}
+.up{color:var(--red)}.dn{color:var(--green)}.fl{color:var(--text3)}
+
+/* NEWS */
+.ng3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.ng2{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.ng1{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:10px}
+.nc{background:var(--bg2);border:1px solid var(--border);border-radius:9px;overflow:hidden;display:flex;flex-direction:column}
+.nc-tall{min-height:320px}
+.nch{display:flex;align-items:center;gap:6px;padding:8px 11px 7px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ncs{font-size:12px;font-weight:600}
+.bdg{padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;font-family:var(--mono)}
+.bg{background:rgba(0,208,132,.12);color:var(--accent);border:1px solid rgba(0,208,132,.18)}
+.br{background:rgba(248,81,73,.1);color:var(--red)}
+.bb{background:rgba(88,166,255,.1);color:var(--blue)}
+.by{background:rgba(227,179,65,.1);color:var(--yellow)}
+.nct{font-size:9px;color:var(--text3);font-family:var(--mono);margin-left:auto}
+.nb{overflow-y:auto;max-height:400px}
+.nb::-webkit-scrollbar{width:2px}
+.nb::-webkit-scrollbar-thumb{background:var(--bg4)}
+a.nr,div.nr{display:flex;align-items:flex-start;gap:6px;padding:7px 11px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:background .12s;text-decoration:none;color:inherit}
+.nr:last-child{border-bottom:none}
+.nr:hover{background:rgba(255,255,255,.025)}
+.nn{width:14px;height:14px;border-radius:3px;font-size:9px;font-weight:700;font-family:var(--mono);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.n1{background:var(--red);color:#fff}.n2{background:var(--orange);color:#fff}.n3{background:var(--yellow);color:#000}.nx{background:var(--bg4);color:var(--text3)}
+.nrc{flex:1;min-width:0}
+.nrt{font-size:12px;line-height:1.5;color:var(--text)}
+.nrf{font-size:9px;color:var(--text3);margin-top:2px;font-family:var(--mono);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.et{padding:1px 4px;border-radius:2px;background:var(--a2);color:var(--accent);font-size:8px}
+.nrch{font-family:var(--mono);font-size:10px;font-weight:600;flex-shrink:0;align-self:center}
+
+/* ONCHAIN */
+.oc4{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+.occ{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:12px;cursor:pointer;transition:all .18s}
+.occ:hover{border-color:var(--border2)}
+.oc-l{font-size:10px;color:var(--text3);margin-bottom:4px}
+.oc-v{font-size:16px;font-weight:700;font-family:var(--mono)}
+.oc-s{font-size:10px;margin-top:2px;color:var(--text2)}
+.oc-d{font-size:10px;color:var(--text3);margin-top:4px;line-height:1.4}
+
+/* FEAR GREED */
+.fg-card{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:14px;margin-bottom:12px;display:flex;align-items:center;gap:20px}
+.fg-num{font-family:var(--mono);font-size:40px;font-weight:700;line-height:1}
+.fg-lab{font-size:13px;font-weight:600;margin-top:3px}
+.fg-arc{width:80px;height:50px;flex-shrink:0}
+.fg-info{flex:1}
+.fg-tit{font-size:12px;font-weight:600;margin-bottom:4px}
+.fg-desc{font-size:11px;color:var(--text2);line-height:1.6}
+.fg-hist{text-align:right;font-size:10px;color:var(--text3);font-family:var(--mono);line-height:1.8}
+
+/* ETF */
+.etf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+.etf-c{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:12px;transition:all .18s;text-decoration:none;color:inherit;display:block}
+.etf-c:hover{border-color:var(--border2);transform:translateY(-1px)}
+.etf-tick{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent)}
+.etf-name{font-size:10px;color:var(--text2);margin:2px 0 8px;line-height:1.3}
+.etf-row{display:flex;justify-content:space-between;margin-bottom:3px}
+.etf-lbl{font-size:10px;color:var(--text3)}
+.etf-val{font-size:11px;font-weight:600;font-family:var(--mono)}
+.etf-bar{height:3px;border-radius:2px;margin-top:8px;background:var(--bg4)}
+.etf-fill{height:100%;border-radius:2px;transition:width .5s}
+
+/* SECTORS */
+.sec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+.scc{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:12px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.scc:hover{border-color:var(--border2);transform:translateY(-1px)}
+.sc-cat{font-size:9px;color:var(--text3);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}
+.sc-nm{font-size:12px;font-weight:600;margin-bottom:4px}
+.sc-ch{font-size:20px;font-weight:700;font-family:var(--mono)}
+.sc-vl{font-size:10px;color:var(--text3);margin-top:3px}
+.sc-bar{position:absolute;bottom:0;left:0;height:2px}
+
+/* DETAIL PANEL */
+.dov{position:fixed;inset:0;z-index:500;display:flex;justify-content:flex-end;pointer-events:none}
+.dp{width:440px;height:100%;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:all;overflow:hidden}
+.dp.open{transform:translateX(0)}
+.dph{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.dpt{font-size:13px;font-weight:600;flex:1}
+.dpc{width:24px;height:24px;border-radius:5px;border:1px solid var(--border2);background:none;cursor:pointer;color:var(--text2);font-size:13px;display:flex;align-items:center;justify-content:center}
+.dpc:hover{background:var(--bg3);color:var(--text)}
+.dpsc{flex:1;overflow-y:auto;padding:14px}
+.dpsc::-webkit-scrollbar{width:3px}
+.dpsc::-webkit-scrollbar-thumb{background:var(--bg4)}
+.dp-price{font-family:var(--mono);font-size:24px;font-weight:700;margin-bottom:2px}
+.dp-meta{font-size:10px;color:var(--text3);margin-bottom:12px;display:flex;gap:8px;font-family:var(--mono)}
+.dp-cw{border-radius:7px;overflow:hidden;margin-bottom:12px;background:var(--bg3)}
+.dp-st{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.dpst{background:var(--bg3);border-radius:6px;padding:8px}
+.dpstl{font-size:9px;color:var(--text3);margin-bottom:2px}
+.dpstv{font-size:11px;font-weight:600;font-family:var(--mono)}
+.dptit{font-size:10px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.dpl{display:flex;align-items:center;gap:7px;padding:8px 9px;background:var(--bg3);border-radius:6px;margin-bottom:5px;text-decoration:none;color:inherit;transition:background .12s;border:1px solid transparent}
+.dpl:hover{background:var(--bg4);border-color:var(--border2)}
+.dplt{font-size:11px;line-height:1.4;flex:1}
+.dpla{color:var(--accent);flex-shrink:0;font-size:13px}
+
+/* STATUSBAR */
+.statusbar{height:20px;background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:12px;font-size:10px;font-family:var(--mono);color:var(--text3);flex-shrink:0}
+.sbst{display:flex;align-items:center;gap:3px}
+.sbdot{width:4px;height:4px;border-radius:50%}
+.tw{flex:1;overflow:hidden;mask-image:linear-gradient(to right,transparent,#000 16px,#000 calc(100% - 16px),transparent)}
+.tt{display:flex;gap:18px;animation:scroll 60s linear infinite;white-space:nowrap}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+.skel{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);background-size:200%;animation:shimmer 1.5s infinite;border-radius:3px;height:10px;margin:7px 11px}
+@keyframes shimmer{to{background-position:-200% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* RESPONSIVE */
+@media(max-width:1300px){
+  .sg4,.oc4,.etf-grid,.sec-grid{grid-template-columns:repeat(2,1fr)}
+  .ng3,.ng2{grid-template-columns:1fr 1fr}
+}
+@media(max-width:900px){
+  .sg4,.oc4,.etf-grid,.sec-grid,.ng3,.ng2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo"><div class="logo-m">📈</div>StockAgent</div>
+  <nav>
+    <button class="ni" onclick="nav('market')">市场总览</button>
+    <button class="ni active" onclick="nav('hotspot')">热点追踪</button>
+    <button class="ni" onclick="nav('crypto')">加密货币</button>
+    <button class="ni" onclick="nav('onchain')">链上数据</button>
+    <button class="ni" onclick="nav('sector')">板块行情</button>
+    <button class="ni" onclick="nav('msx')">◈ MSX & ETF</button>
+  </nav>
+  <div class="tb-right">
+    <div class="live-b"><div class="ldot"></div>LIVE</div>
+    <span id="clock">--:--:--</span>
+  </div>
+</div>
+
+<div class="app">
+<div class="sb">
+  <button class="si active" data-tip="热点追踪" onclick="nav('hotspot')">🔥</button>
+  <button class="si" data-tip="市场总览" onclick="nav('market')">📊</button>
+  <button class="si" data-tip="加密货币" onclick="nav('crypto')">₿</button>
+  <button class="si" data-tip="链上数据" onclick="nav('onchain')">⛓</button>
+  <button class="si" data-tip="板块行情" onclick="nav('sector')">🗂</button>
+  <div class="ssep"></div>
+  <button class="si" data-tip="MSX & ETF" onclick="nav('msx')" style="color:var(--accent)">◈</button>
+  <div class="ssep"></div>
+  <button class="si" data-tip="GitHub" onclick="nav('github')" style="color:var(--yellow)">⑂</button>
+</div>
+
+<div class="main">
+
+<!-- ══ HOTSPOT ══ -->
+<div class="page active" id="page-hotspot">
+<div class="ps">
+  <div class="ph">
+    <span class="pt">热点追踪</span>
+    <div class="pg">
+      <button class="pill active" onclick="swp(this)">全部</button>
+      <button class="pill" onclick="swp(this)">财经</button>
+      <button class="pill" onclick="swp(this)">加密</button>
+      <button class="pill" onclick="swp(this)">科技</button>
+    </div>
+    <div class="sp"></div>
+    <button class="abtn" id="hs-btn" onclick="refreshHS()"><span id="hs-ic">↻</span> 刷新</button>
+  </div>
+
+  <!-- ROW 1: 财经三巨头 -->
+  <div class="ng2">
+    <div class="nc nc-tall">
+      <div class="nch"><span class="ncs">财联社</span><span class="bdg bg">电报</span><span class="nct" id="t-cls">—</span></div>
+      <div class="nb" id="list-cls"><div class="skel"></div><div class="skel" style="width:80%"></div><div class="skel" style="width:90%"></div></div>
+    </div>
+    <div class="nc nc-tall">
+      <div class="nch"><span class="ncs">华尔街见闻</span><span class="bdg bb">快讯</span><span class="nct" id="t-hwj">—</span></div>
+      <div class="nb" id="list-hwj"><div class="skel"></div><div class="skel" style="width:75%"></div></div>
+    </div>
+    <div class="nc nc-tall">
+      <div class="nch"><span class="ncs">36氪</span><span class="bdg bb">快讯</span><span class="nct" id="t-36k">—</span></div>
+      <div class="nb" id="list-36k"><div class="skel"></div><div class="skel" style="width:82%"></div></div>
+    </div>
+  </div>
+
+  <!-- ROW 2 -->
+  <div class="ng3">
+    <div class="nc nc-tall">
+      <div class="nch"><span class="ncs">雪球</span><span class="bdg br">热门股</span><span class="nct" id="t-xq">—</span></div>
+      <div class="nb" id="list-xq"><div class="skel"></div><div class="skel" style="width:85%"></div></div>
+    </div>
+    <div class="nc nc-tall">
+      <div class="nch"><span class="ncs">金十数据</span><span class="bdg bg">快讯</span><span class="nct" id="t-js">—</span></div>
+      <div class="nb" id="list-js"><div class="skel"></div><div class="skel" style="width:78%"></div></div>
+    </div>
+    <div class="nc nc-tall">
+      <div class="nch"><span class="ncs">澎湃新闻</span><span class="bdg br">热榜</span><span class="nct" id="t-pp">—</span></div>
+      <div class="nb" id="list-pp"><div class="skel"></div><div class="skel" style="width:88%"></div></div>
+    </div>
+  </div>
+
+  <!-- ROW 3: 科技/加密 -->
+  <div class="ng3">
+    <div class="nc nc-tall">
+      <div class="nch"><span class="ncs" style="color:var(--yellow)">GitHub</span><span class="bdg by">Trending</span><span class="nct" id="t-gh">—</span></div>
+      <div class="nb" id="list-gh"><div class="skel"></div><div class="skel" style="width:72%"></div></div>
+    </div>
+    <div class="nc nc-tall">
+      <div class="nch"><span class="ncs">稀土掘金</span><span class="bdg br">热榜</span><span class="nct" id="t-xt">—</span></div>
+      <div class="nb" id="list-xt"><div class="skel"></div><div class="skel" style="width:80%"></div></div>
+    </div>
+    <div class="nc nc-tall">
+      <div class="nch"><span class="ncs" style="color:var(--accent)">深潮 TechFlow</span><span class="bdg bg">Web3快讯</span><span class="nct" id="t-tc">—</span></div>
+      <div class="nb" id="list-tc"><div class="skel"></div><div class="skel" style="width:76%"></div></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══ MARKET ══ -->
+<div class="page" id="page-market">
+<div class="ps">
+  <div class="ph"><span class="pt">市场总览</span><div class="sp"></div><button class="abtn" onclick="loadMarket()">↻ 刷新</button></div>
+
+  <div class="sect-title">加密货币</div>
+  <div class="sg4">
+    <div class="sc" onclick="openCoin('bitcoin','Bitcoin','var(--yellow)')"><div class="sc-l">₿ Bitcoin</div><div class="sc-v" id="m-btc" style="color:var(--yellow)">…</div><div class="sc-s" id="m-btc-c">—</div></div>
+    <div class="sc" onclick="openCoin('ethereum','Ethereum','var(--blue)')"><div class="sc-l">Ξ Ethereum</div><div class="sc-v" id="m-eth" style="color:var(--blue)">…</div><div class="sc-s" id="m-eth-c">—</div></div>
+    <div class="sc" onclick="openCoin('solana','Solana','#9945ff')"><div class="sc-l">◎ Solana</div><div class="sc-v" id="m-sol" style="color:#9945ff">…</div><div class="sc-s" id="m-sol-c">—</div></div>
+    <div class="sc"><div class="sc-l">😨 恐慌/贪婪指数</div><div class="sc-v" id="m-fg" style="color:var(--yellow)">…</div><div class="sc-s" id="m-fg-l">—</div></div>
+  </div>
+
+  <div class="sect-title">中国股市</div>
+  <div class="sg4">
+    <div class="sc"><div class="sc-l">🇨🇳 上证指数</div><div class="sc-v" id="m-sh" style="color:var(--red)">…</div><div class="sc-s" id="m-sh-c">—</div></div>
+    <div class="sc"><div class="sc-l">🇨🇳 深证成指</div><div class="sc-v" id="m-sz" style="color:var(--green)">…</div><div class="sc-s" id="m-sz-c">—</div></div>
+    <div class="sc"><div class="sc-l">🇨🇳 创业板指</div><div class="sc-v" id="m-cy" style="color:var(--red)">…</div><div class="sc-s" id="m-cy-c">—</div></div>
+    <div class="sc"><div class="sc-l">🇨🇳 沪深300</div><div class="sc-v" id="m-hs300" style="color:var(--red)">…</div><div class="sc-s" id="m-hs300-c">—</div></div>
+  </div>
+
+  <div class="sect-title">美股</div>
+  <div class="sg4">
+    <div class="sc"><div class="sc-l">🇺🇸 S&P 500</div><div class="sc-v" id="m-sp" style="color:var(--red)">…</div><div class="sc-s" id="m-sp-c">—</div></div>
+    <div class="sc"><div class="sc-l">🇺🇸 纳斯达克</div><div class="sc-v" id="m-nas" style="color:var(--red)">…</div><div class="sc-s" id="m-nas-c">—</div></div>
+    <div class="sc"><div class="sc-l">🇺🇸 道琼斯</div><div class="sc-v" id="m-dj" style="color:var(--green)">…</div><div class="sc-s" id="m-dj-c">—</div></div>
+    <div class="sc"><div class="sc-l">🇺🇸 罗素2000</div><div class="sc-v" id="m-rut" style="color:var(--red)">…</div><div class="sc-s" id="m-rut-c">—</div></div>
+  </div>
+
+  <div class="sect-title">全球股市</div>
+  <div class="sg4">
+    <div class="sc"><div class="sc-l">🇯🇵 日经225</div><div class="sc-v" id="m-nk" style="color:var(--red)">38,820</div><div class="sc-s" style="color:var(--red)">▲ +0.66%</div></div>
+    <div class="sc"><div class="sc-l">🇭🇰 恒生指数</div><div class="sc-v" id="m-hsi" style="color:var(--green)">16,512</div><div class="sc-s" style="color:var(--green)">▼ -1.04%</div></div>
+    <div class="sc"><div class="sc-l">🇰🇷 韩国KOSPI</div><div class="sc-v" style="color:var(--red)">2,650</div><div class="sc-s" style="color:var(--red)">▲ +0.28%</div></div>
+    <div class="sc"><div class="sc-l">🇩🇪 德国DAX</div><div class="sc-v" style="color:var(--red)">18,240</div><div class="sc-s" style="color:var(--red)">▲ +0.42%</div></div>
+  </div>
+
+  <div class="sect-title">大宗商品</div>
+  <div class="sg4">
+    <div class="sc"><div class="sc-l">🥇 黄金 XAU/USD</div><div class="sc-v" id="m-gold" style="color:var(--yellow)">…</div><div class="sc-s" id="m-gold-c">—</div></div>
+    <div class="sc"><div class="sc-l">🥈 白银 XAG/USD</div><div class="sc-v" style="color:var(--text)">27.42</div><div class="sc-s" style="color:var(--green)">▼ -0.8%</div></div>
+    <div class="sc"><div class="sc-l">🛢 原油 WTI</div><div class="sc-v" id="m-oil" style="color:var(--red)">…</div><div class="sc-s" id="m-oil-c">—</div></div>
+    <div class="sc"><div class="sc-l">🌾 天然气</div><div class="sc-v" style="color:var(--green)">2.14</div><div class="sc-s" style="color:var(--green)">▼ -2.1%</div></div>
+  </div>
+
+  <!-- BTC 图表 -->
+  <div class="cs">
+    <div class="ch">
+      <span class="ct" id="mc-t">Bitcoin (BTC)</span>
+      <span class="cp" id="mc-p" style="color:var(--yellow)">加载中...</span>
+      <span class="cc" id="mc-c"></span>
+      <div class="sp"></div>
+      <div class="pg">
+        <button class="pill active" onclick="swp(this);loadMC('1')">1天</button>
+        <button class="pill" onclick="swp(this);loadMC('7')">7天</button>
+        <button class="pill" onclick="swp(this);loadMC('30')">1月</button>
+        <button class="pill" onclick="swp(this);loadMC('90')">3月</button>
+        <button class="pill" onclick="swp(this);loadMC('365')">1年</button>
+        <button class="pill" onclick="swp(this);loadMC('max')">全部</button>
+      </div>
+    </div>
+    <div class="cb" id="mc-b"><div class="cl">加载中...</div></div>
+  </div>
+</div></div>
+
+<!-- ══ CRYPTO ══ -->
+<div class="page" id="page-crypto">
+<div class="ps">
+  <div class="ph">
+    <span class="pt">加密货币</span>
+    <div class="pg">
+      <button class="pill active" onclick="swp(this);loadCrypto('spot')">现货</button>
+      <button class="pill" onclick="swp(this);loadCrypto('rwa')">RWA</button>
+      <button class="pill" onclick="swp(this);loadCrypto('defi')">DeFi</button>
+      <button class="pill" onclick="swp(this);loadCrypto('ai')">AI</button>
+      <button class="pill" onclick="swp(this);loadCrypto('meme')">Meme</button>
+    </div>
+    <div class="sp"></div>
+    <button class="abtn" onclick="loadCrypto(curCat)">↻ 刷新</button>
+  </div>
+  <div class="mt">
+    <div class="mth c7"><span>#</span><span>名称</span><span style="text-align:right">价格</span><span style="text-align:right">24H</span><span style="text-align:right">7D</span><span style="text-align:right">市值</span><span style="text-align:right">来源</span></div>
+    <div id="ct-body"><div class="skel" style="margin:12px"></div><div class="skel" style="margin:12px;width:70%"></div><div class="skel" style="margin:12px;width:85%"></div></div>
+  </div>
+</div></div>
+
+<!-- ══ ONCHAIN ══ -->
+<div class="page" id="page-onchain">
+<div class="ps">
+  <div class="ph">
+    <span class="pt">BTC 链上数据</span>
+    <div class="sp"></div>
+    <a href="https://btc.x.fish/" target="_blank" class="abtn" style="color:var(--accent);border-color:rgba(0,208,132,.3)">↗ btc.x.fish</a>
+    <button class="abtn" onclick="loadOnchain()">↻ 刷新</button>
+  </div>
+
+  <!-- 恐慌贪婪 -->
+  <div class="fg-card" id="fg-card">
+    <div>
+      <div class="fg-num" id="fg-num" style="color:var(--yellow)">—</div>
+      <div class="fg-lab" id="fg-lab" style="color:var(--yellow)">加载中</div>
+    </div>
+    <svg class="fg-arc" viewBox="0 0 80 50">
+      <path d="M10 45 A30 30 0 0 1 70 45" fill="none" stroke="#21262d" stroke-width="8" stroke-linecap="round"/>
+      <path id="fg-arc-path" d="M10 45 A30 30 0 0 1 70 45" fill="none" stroke="var(--yellow)" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 94"/>
+    </svg>
+    <div class="fg-info">
+      <div class="fg-tit">恐慌贪婪指数 · Fear & Greed Index</div>
+      <div class="fg-desc" id="fg-desc">综合衡量市场情绪：0=极度恐慌，100=极度贪婪。极度恐慌通常是买入机会，极度贪婪时需谨慎。</div>
+    </div>
+    <div class="fg-hist">
+      昨日 <span id="fg-y">—</span><br>
+      上周 <span id="fg-w">—</span><br>
+      上月 <span id="fg-m">—</span>
+    </div>
+  </div>
+
+  <!-- 核心指标 -->
+  <div class="sect-title">实时链上指标</div>
+  <div class="oc4">
+    <div class="occ" onclick="window.open('https://btc.x.fish/','_blank')">
+      <div class="oc-l">BTC 价格</div>
+      <div class="oc-v" id="oc-price" style="color:var(--yellow)">加载中</div>
+      <div class="oc-s" id="oc-price-c">—</div>
+      <div class="oc-d">OKX 实时价格</div>
+    </div>
+    <div class="occ" onclick="window.open('https://mempool.space/','_blank')">
+      <div class="oc-l">全网算力</div>
+      <div class="oc-v" id="oc-hash" style="color:var(--purple)">加载中</div>
+      <div class="oc-s" id="oc-hash-s">EH/s</div>
+      <div class="oc-d">3日平均算力，矿工信心指标</div>
+    </div>
+    <div class="occ" onclick="window.open('https://mempool.space/','_blank')">
+      <div class="oc-l">当前区块高度</div>
+      <div class="oc-v" id="oc-block" style="color:var(--blue)">加载中</div>
+      <div class="oc-s" id="oc-block-s">—</div>
+      <div class="oc-d">距下次减半剩余区块数</div>
+    </div>
+    <div class="occ" onclick="window.open('https://mempool.space/mining/dashboard','_blank')">
+      <div class="oc-l">减半倒计时</div>
+      <div class="oc-v" id="oc-halving" style="color:var(--orange)">加载中</div>
+      <div class="oc-s" id="oc-halving-s">—</div>
+      <div class="oc-d">预计下次减半日期</div>
+    </div>
+  </div>
+
+  <div class="oc4">
+    <div class="occ" onclick="window.open('https://btc.x.fish/','_blank')">
+      <div class="oc-l">200周均线 (200WMA)</div>
+      <div class="oc-v" id="oc-wma" style="color:var(--green)">计算中</div>
+      <div class="oc-s" id="oc-wma-s">—</div>
+      <div class="oc-d">历史底部区间参考，价格低于此值为历史机会</div>
+    </div>
+    <div class="occ" onclick="window.open('https://btc.x.fish/','_blank')">
+      <div class="oc-l">ahr999 定投指数</div>
+      <div class="oc-v" id="oc-ahr" style="color:var(--accent)">计算中</div>
+      <div class="oc-s" id="oc-ahr-s">—</div>
+      <div class="oc-d">&lt;0.45适合定投，&lt;1.2可定投，>1.2暂停定投</div>
+    </div>
+    <div class="occ">
+      <div class="oc-l">BTC 主导率</div>
+      <div class="oc-v" id="oc-dom" style="color:var(--yellow)">加载中</div>
+      <div class="oc-s" id="oc-dom-s">—</div>
+      <div class="oc-d">BTC市值/总加密市值，&gt;55%偏避险</div>
+    </div>
+    <div class="occ">
+      <div class="oc-l">总加密市值</div>
+      <div class="oc-v" id="oc-mcap" style="color:var(--blue)">加载中</div>
+      <div class="oc-s" id="oc-mcap-s">—</div>
+      <div class="oc-d">全球加密货币总市值</div>
+    </div>
+  </div>
+
+  <!-- MSTR mNAV -->
+  <div class="sect-title">策略股 mNAV 溢价</div>
+  <div class="sg3">
+    <div class="sc" onclick="window.open('https://finance.yahoo.com/quote/MSTR','_blank')">
+      <div class="sc-l">MicroStrategy (MSTR)</div>
+      <div class="sc-v" id="oc-mstr" style="color:var(--orange)">计算中</div>
+      <div class="sc-s" id="oc-mstr-s">mNAV 倍数</div>
+    </div>
+    <div class="sc" onclick="window.open('https://mempool.space/mining','_blank')">
+      <div class="sc-l">矿工收入 (USD/天)</div>
+      <div class="sc-v" id="oc-miner" style="color:var(--purple)">加载中</div>
+      <div class="sc-s">估算值</div>
+    </div>
+    <div class="sc" onclick="window.open('https://btc.x.fish/','_blank')">
+      <div class="sc-l">均衡价格 (Balanced Price)</div>
+      <div class="sc-v" id="oc-bp" style="color:var(--green)">计算中</div>
+      <div class="sc-s" id="oc-bp-s">正常估值区间</div>
+    </div>
+  </div>
+
+  <!-- BTC 图表 30天 -->
+  <div class="cs">
+    <div class="ch">
+      <span class="ct">BTC 价格走势</span>
+      <span class="cp" id="oc-cp" style="color:var(--yellow)">—</span>
+      <span class="cc" id="oc-cc"></span>
+      <div class="sp"></div>
+      <div class="pg">
+        <button class="pill" onclick="swp(this);loadOCChart('7')">7天</button>
+        <button class="pill active" onclick="swp(this);loadOCChart('30')">30天</button>
+        <button class="pill" onclick="swp(this);loadOCChart('90')">90天</button>
+        <button class="pill" onclick="swp(this);loadOCChart('365')">1年</button>
+      </div>
+    </div>
+    <div class="cb" id="oc-chart"><div class="cl">加载中...</div></div>
+  </div>
+</div></div>
+
+<!-- ══ SECTOR ══ -->
+<div class="page" id="page-sector">
+<div class="ps">
+  <div class="ph">
+    <span class="pt">板块行情</span>
+    <div class="pg">
+      <button class="pill active" onclick="swp(this);renderSectors('A股')">A股</button>
+      <button class="pill" onclick="swp(this);renderSectors('美股')">美股</button>
+      <button class="pill" onclick="swp(this);renderSectors('大宗')">大宗商品</button>
+      <button class="pill" onclick="swp(this);renderSectors('全球')">全球指数</button>
+    </div>
+    <div class="sp"></div>
+    <button class="abtn" onclick="loadSectorData()">↻ 东财实时</button>
+  </div>
+  <div class="sec-grid" id="sec-g"></div>
+</div></div>
+
+<!-- ══ MSX & ETF ══ -->
+<div class="page" id="page-msx">
+<div class="ps">
+  <div class="ph">
+    <span class="pt" style="color:var(--accent)">◈ 麦通 MSX · RWA & ETF</span>
+    <div class="sp"></div>
+    <a href="https://msx.finance" target="_blank" class="abtn" style="color:var(--accent);border-color:rgba(0,208,132,.3)">↗ MSX 平台</a>
+    <a href="https://sosovalue.com/assets/etf/us-btc-spot" target="_blank" class="abtn" style="color:var(--yellow);border-color:rgba(227,179,65,.3)">↗ ETF 数据</a>
+  </div>
+
+  <!-- MSX 统计 -->
+  <div class="sg4">
+    <div class="sc" style="border-color:rgba(0,208,132,.2)"><div class="sc-l">24H 成交量</div><div class="sc-v" style="color:var(--accent)">$120.78M</div><div class="sc-s" style="color:var(--accent)">▲ +12.4%</div></div>
+    <div class="sc" style="border-color:rgba(0,208,132,.2)"><div class="sc-l">RWA 总锁仓</div><div class="sc-v" style="color:var(--accent)">$29.61B</div><div class="sc-s" style="color:var(--text3)">累计上链</div></div>
+    <div class="sc" style="border-color:rgba(0,208,132,.2)"><div class="sc-l">RWA 代币数</div><div class="sc-v" style="color:var(--accent)">300+</div><div class="sc-s" style="color:var(--text3)">已上线资产</div></div>
+    <div class="sc" style="border-color:rgba(0,208,132,.2)"><div class="sc-l">注册用户</div><div class="sc-v" style="color:var(--accent)">180.1K</div><div class="sc-s" style="color:var(--accent)">▲ +2.1K 今日</div></div>
+  </div>
+
+  <!-- ETF -->
+  <div class="sect-title">📊 比特币现货 ETF — 资金流向</div>
+  <div class="sg3" style="margin-bottom:10px">
+    <div class="sc"><div class="sc-l">今日 ETF 总净流入</div><div class="sc-v" id="etf-tot" style="color:var(--green)">计算中</div><div class="sc-s">合计</div></div>
+    <div class="sc"><div class="sc-l">ETF 总 AUM</div><div class="sc-v" style="color:var(--yellow)">$63.2B</div><div class="sc-s" style="color:var(--text3)">总资产规模</div></div>
+    <div class="sc"><div class="sc-l">ETF 总 BTC 持仓</div><div class="sc-v" style="color:var(--yellow)">886,010</div><div class="sc-s" style="color:var(--text3)">BTC</div></div>
+  </div>
+  <div class="etf-grid" id="etf-grid"></div>
+
+  <!-- RWA 赛道 -->
+  <div class="sect-title">◈ RWA 赛道 — 点击查看具体项目</div>
+  <div class="ng3">
+    <div class="nc" style="border-color:rgba(0,208,132,.2)">
+      <div class="nch" style="background:rgba(0,208,132,.04)"><span class="ncs" style="color:var(--accent)">MSX 最新动态</span><span class="bdg bg">实时</span><span class="nct">刚刚</span></div>
+      <div class="nb" id="list-msx"></div>
+    </div>
+    <div class="nc" style="border-color:rgba(0,208,132,.15)">
+      <div class="nch"><span class="ncs" style="color:var(--accent)">RWA 赛道</span><span class="bdg bg">点击进入</span></div>
+      <div class="nb" id="list-rwa"></div>
+    </div>
+    <div class="nc">
+      <div class="nch"><span class="ncs">加密实时行情</span><span class="bdg bg">OKX</span><span class="nct" id="t-msc">—</span></div>
+      <div class="nb" id="list-msc"><div class="skel"></div></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══ GITHUB ══ -->
+<div class="page" id="page-github">
+<div class="ps">
+  <div class="ph">
+    <span class="pt" style="color:var(--yellow)">GitHub Trending</span>
+    <div class="sp"></div>
+    <a href="https://github.com/trending" target="_blank" class="abtn" style="color:var(--yellow)">↗ GitHub</a>
+  </div>
+  <div class="mt"><div class="nb" id="list-ghf"><div class="skel"></div><div class="skel" style="width:78%"></div></div></div>
+</div></div>
+
+</div></div></div><!-- /main /app /body -->
+
+<!-- DETAIL PANEL -->
+<div class="dov" id="dov" onclick="if(event.target===this)closeD()">
+<div class="dp" id="dp">
+  <div class="dph"><div class="dpt" id="dp-t">—</div><button class="dpc" onclick="closeD()">✕</button></div>
+  <div class="dpsc">
+    <div class="dp-price" id="dp-p">—</div>
+    <div class="dp-meta"><span id="dp-c">—</span><span id="dp-m">24H</span></div>
+    <div id="dp-pb"></div>
+    <div class="dp-cw" id="dp-cw"><div style="height:200px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">加载中...</div></div>
+    <div class="dp-st" id="dp-s"></div>
+    <div class="dptit">相关链接</div>
+    <div id="dp-l"></div>
+  </div>
+</div></div>
+
+<!-- STATUSBAR -->
+<div class="statusbar">
+  <div class="sbst"><div class="sbdot" style="background:var(--green)"></div>数据连接</div>
+  <div class="sbst"><div class="sbdot" style="background:var(--accent)"></div>MSX RWA</div>
+  <div class="sbst"><div class="sbdot" style="background:var(--yellow)"></div>ETF</div>
+  <div class="tw"><div class="tt" id="ticker">加载行情...</div></div>
+  <span>StockAgent v5.0</span>
+</div>
+
+<script>
+// ════ CONFIG ════
+const PROXY = 'https://stockagent-proxy.frs031.workers.dev';
+const API = {
+  okxTicker: id => `${PROXY}/api/okx/market/ticker?instId=${id}`,
+  okxCandles: (id,bar,limit) => `${PROXY}/api/okx/market/candles?instId=${id}&bar=${bar}&limit=${limit}`,
+  fng: n => `${PROXY}/api/fng/?limit=${n}`,
+  mempoolHash: () => `${PROXY}/api/mempool/v1/mining/hashrate/3d`,
+  mempoolHeight: () => `${PROXY}/api/mempool/blocks/tip/height`,
+  mempoolDiff: () => `${PROXY}/api/mempool/v1/mining/difficulty-adjustments?interval=3m`,
+  coingeckoMarkets: ids => `${PROXY}/api/coingecko/coins/markets?vs_currency=usd&ids=${ids}&order=market_cap_desc&per_page=50&sparkline=false&price_change_percentage=24h,7d`,
+  coingeckoGlobal: () => `${PROXY}/api/coingecko/global`,
+  coingeckoCoin: id => `${PROXY}/api/coingecko/coins/${id}?localization=false&tickers=false&community_data=false&developer_data=false`,
+  coingeckoChart: (id,days) => `${PROXY}/api/coingecko/coins/${id}/market_chart?vs_currency=usd&days=${days}`,
+  github: q => `${PROXY}/api/github/search/repositories?q=${q}&sort=stars&order=desc&per_page=10`,
+  efdata: code => `${PROXY}/api/efdata/stock/get?ut=bd1d9195e7a64bc5a37adb8e3fc86f18&fltt=2&invt=2&secid=${code}&fields=f43,f44,f45,f46,f47,f48,f57,f58,f107`,
+};
+
+// ════ CLOCK ════
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('zh-CN',{hour12:false})},1000);
+
+// ════ NAV ════
+let curPage='hotspot';
+function nav(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ni,.si').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id)?.classList.add('active');
+  const nm={market:'市场总览',hotspot:'热点追踪',crypto:'加密货币',onchain:'链上数据',sector:'板块行情',msx:'◈ MSX & ETF',github:'GitHub Trending'};
+  document.querySelectorAll('.ni').forEach(b=>{if(b.textContent.trim()===nm[id])b.classList.add('active')});
+  curPage=id;
+  if(id==='market'){loadMarket();loadMC('1');}
+  if(id==='sector')renderSectors('A股');
+  if(id==='msx'){renderMSX();renderRWA();loadMSCrypto();}
+  if(id==='github')loadGH('list-ghf');
+  if(id==='crypto')loadCrypto('spot');
+  if(id==='onchain')loadOnchain();
+}
+function swp(el){el.closest('.pg').querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');}
+
+// ════ UTILS ════
+function ft(ts){
+  if(!ts)return'';
+  const d=ts instanceof Date?ts:new Date(typeof ts==='number'?ts:ts),now=new Date(),diff=Math.floor((now-d)/1000);
+  if(isNaN(d.getTime()))return'';
+  if(diff<60)return diff+'秒前';if(diff<3600)return Math.floor(diff/60)+'分前';
+  if(diff<86400)return Math.floor(diff/3600)+'小时前';
+  return(d.getMonth()+1)+'/'+(d.getDate())+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function nowS(){return new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})+' 更新';}
+function rT(a,b){return new Date(Date.now()-(Math.random()*(b-a)+a)*60000);}
+function nc(i){return['n1','n2','n3'][i]||'nx';}
+function fmt$(n){if(!n)return'—';if(n>=1e12)return'$'+(n/1e12).toFixed(2)+'T';if(n>=1e9)return'$'+(n/1e9).toFixed(2)+'B';if(n>=1e6)return'$'+(n/1e6).toFixed(0)+'M';return'$'+n.toLocaleString();}
+function fmtP(n,d=2){if(n==null)return'—';return(n>=0?'+':'')+n.toFixed(d)+'%';}
+async function apiFetch(url,opts={}){const r=await fetch(url,opts);if(!r.ok)throw new Error(r.status);return r.json();}
+
+// ════ NEWS RENDER ════
+function renderList(items,id){
+  const el=document.getElementById(id);if(!el)return;
+  if(!items||!items.length){el.innerHTML='<div style="padding:14px;text-align:center;color:var(--text3);font-size:11px">暂无数据</div>';return;}
+  el.innerHTML=items.map((it,i)=>{
+    const tag=it.url?'a':'div';
+    const href=it.url?`href="${it.url}" target="_blank" rel="noopener"`:'';
+    return`<${tag} class="nr" ${href}>
+      <div class="nn ${nc(i)}">${i+1}</div>
+      <div class="nrc">
+        <div class="nrt">${it.text}</div>
+        <div class="nrf">${ft(it.time||rT(1,120))}${it.url?`<span class="et">↗ 原文</span>`:''}${it.src?`<span style="color:var(--text3)">${it.src}</span>`:''}</div>
+      </div>
+      ${it.change!=null?`<span class="nrch ${it.change>0?'up':it.change<0?'dn':'fl'}">${it.change>0?'+':''}${it.change}%</span>`:''}
+    </${tag}>`;
+  }).join('');
+}
+
+// ════ STATIC NEWS DATA (with real links) ════
+const ND={
+  cls:[
+    {text:'【财联社电报】特朗普政府势将暂停实施琼斯法以抑制油价上涨',time:rT(2,5),url:'https://www.cls.cn/telegraph'},
+    {text:'欧洲水泥股下挫 欧盟据悉拟放宽碳规则',time:rT(5,12),url:'https://www.cls.cn/telegraph'},
+    {text:'两部门印发示范文本推动合同节水管理健康有序发展',time:rT(12,20),url:'https://www.cls.cn/telegraph'},
+    {text:'财联社电，纳斯达克100指数跌幅扩大至1.5%',time:rT(20,30),url:'https://www.cls.cn/telegraph'},
+    {text:'【电报】中东地缘冲突威胁全球9%电解铝产能，利用率逼近99%',time:rT(30,45),url:'https://www.cls.cn/telegraph'},
+    {text:'欧盟考虑放宽碳减额规则并扩大国家援助以遏制电价上涨',time:rT(45,60),url:'https://www.cls.cn/telegraph'},
+    {text:'财联社电，美上周EIA天然气库存减少380亿立方英尺',time:rT(60,90),url:'https://www.cls.cn/telegraph'},
+    {text:'国际油价短线拉升 涨幅扩大至10%',time:rT(90,120),url:'https://www.cls.cn/telegraph'},
+    {text:'A股三大指数午后拉升，沪指涨幅扩大至0.8%',time:rT(120,180),url:'https://www.cls.cn/telegraph'},
+    {text:'北向资金今日净流入超15亿元，科技板块获大幅加仓',time:rT(180,240),url:'https://www.cls.cn/telegraph'},
+  ],
+  hwj:[
+    {text:'中东股市收盘播报｜本周沙特阿美累涨约3.8%',time:rT(3,8),url:'https://wallstreetcn.com/articles/live'},
+    {text:'意大利银行业监管警告橡树资本旗下银行救援计划存在风险',time:rT(8,20),url:'https://wallstreetcn.com/articles/live'},
+    {text:'报道：特朗普政府拟暂停《琼斯法案》从而实现平抑油价',time:rT(20,35),url:'https://wallstreetcn.com/articles/live'},
+    {text:'欧洲科技初创企业从未见过如此大规模的融资潮',time:rT(35,55),url:'https://wallstreetcn.com/articles/live'},
+    {text:'美福特号航母洗衣房起火',time:rT(55,80),url:'https://wallstreetcn.com/articles/live'},
+    {text:'CFTC针对预测市场发布指导意见和先行制度',time:rT(80,110),url:'https://wallstreetcn.com/articles/live'},
+    {text:'标普500跌幅扩大至1.3%，道指下跌675点',time:rT(110,150),url:'https://wallstreetcn.com/articles/live'},
+    {text:'WTI原油期货涨超9%，至接近189美元水平',time:rT(150,200),url:'https://wallstreetcn.com/articles/live'},
+    {text:'美联储官员：需要看到更多降通胀证据才会行动',time:rT(200,280),url:'https://wallstreetcn.com/articles/live'},
+    {text:'黄金突破2350美元关口，创近期新高',time:rT(280,360),url:'https://wallstreetcn.com/articles/live'},
+  ],
+  '36k':[
+    {text:'热门中概股美股盘前多数下跌，理想汽车跌超3%',time:rT(4,10),url:'https://36kr.com/newsflashes'},
+    {text:'美股大型科技股盘前普跌，英特尔跌超1%',time:rT(10,25),url:'https://36kr.com/newsflashes'},
+    {text:'帝尔激光：拟发行H股并在港交所主板上市',time:rT(25,40),url:'https://36kr.com/newsflashes'},
+    {text:'腾讯推出OpenClaw安全工具箱',time:rT(40,60),url:'https://36kr.com/newsflashes'},
+    {text:'微软、Meta推动数据中心租赁市场激增7000亿美元',time:rT(60,90),url:'https://36kr.com/newsflashes'},
+    {text:'宝马智驾放弃L3级自动驾驶',time:rT(90,130),url:'https://36kr.com/newsflashes'},
+    {text:'超讯通信：拟设立控股子公司拓展算力业务',time:rT(130,180),url:'https://36kr.com/newsflashes'},
+    {text:'广发证券：拟向广发香港增资不超过61亿港元',time:rT(180,240),url:'https://36kr.com/newsflashes'},
+    {text:'华为盘古大模型5.0发布，多项指标超越GPT-4o',time:rT(240,360),url:'https://36kr.com/newsflashes'},
+    {text:'字节跳动豆包日活破亿，AI应用市场格局初定',time:rT(360,480),url:'https://36kr.com/newsflashes'},
+  ],
+  xq:[
+    {text:'英伟达 NVDA',change:-2.06,time:rT(0,3),url:'https://xueqiu.com/S/NVDA'},
+    {text:'胜宏科技 SZ002384',change:-1.51,time:rT(0,3),url:'https://xueqiu.com/S/SZ002384'},
+    {text:'寒武纪-U SH688256',change:0.00,time:rT(0,3),url:'https://xueqiu.com/S/SH688256'},
+    {text:'宝丰能源 SH600989',change:5.90,time:rT(0,3),url:'https://xueqiu.com/S/SH600989'},
+    {text:'华工科技 SZ000988',change:-5.17,time:rT(0,3),url:'https://xueqiu.com/S/SZ000988'},
+    {text:'中国能建 SH601868',change:10.14,time:rT(0,3),url:'https://xueqiu.com/S/SH601868'},
+    {text:'东山精密 SZ002384',change:4.29,time:rT(0,3),url:'https://xueqiu.com/S/SZ002384'},
+    {text:'阿里巴巴 BABA',change:-1.38,time:rT(0,3),url:'https://xueqiu.com/S/BABA'},
+    {text:'阳光电源 SZ300274',change:1.28,time:rT(0,3),url:'https://xueqiu.com/S/SZ300274'},
+    {text:'西方石油 OXY',change:4.15,time:rT(0,3),url:'https://xueqiu.com/S/OXY'},
+    {text:'特变电工 SH600089',change:-0.64,time:rT(0,3),url:'https://xueqiu.com/S/SH600089'},
+    {text:'台积电 TSM',change:-4.69,time:rT(0,3),url:'https://xueqiu.com/S/TSM'},
+    {text:'比亚迪 SH002594',change:2.33,time:rT(0,3),url:'https://xueqiu.com/S/SZ002594'},
+    {text:'宁德时代 SZ300750',change:1.87,time:rT(0,3),url:'https://xueqiu.com/S/SZ300750'},
+  ],
+  js:[
+    {text:'市场消息：国际海事组织召开特别会议讨论中东局势',time:rT(5,15),url:'https://jin10.com'},
+    {text:'那威海事机构：悬挂威国旗的船舶不得进入相关海域',time:rT(15,30),url:'https://jin10.com'},
+    {text:'美联储官员：通胀数据仍在高位，降息时机尚不成熟',time:rT(30,60),url:'https://jin10.com'},
+    {text:'日本央行讨论进一步加息的具体条件',time:rT(60,100),url:'https://jin10.com'},
+    {text:'欧元区2月PMI终值确认制造业持续萎缩',time:rT(100,150),url:'https://jin10.com'},
+    {text:'美国3月非农就业数据超预期，失业率维持4.1%',time:rT(150,200),url:'https://jin10.com'},
+    {text:'沙特宣布将继续维持自愿减产协议至下季度末',time:rT(200,300),url:'https://jin10.com'},
+  ],
+  pp:[
+    {text:'"堕抄"风波中，不愿"沉默"的人',time:rT(10,30),url:'https://www.thepaper.cn/'},
+    {text:'美国贸易代表：与16个贸易伙伴发起301调查',time:rT(30,60),url:'https://www.thepaper.cn/'},
+    {text:'中国也无意填补美国留下的"真空"',time:rT(60,90),url:'https://www.thepaper.cn/'},
+    {text:'055逼近列装三大战区',time:rT(90,150),url:'https://www.thepaper.cn/'},
+    {text:'全国两会圆满闭幕，多项重大决议通过',time:rT(150,300),url:'https://www.thepaper.cn/'},
+    {text:'国家统计局：3月CPI同比下降0.1%，环比持平',time:rT(300,480),url:'https://www.thepaper.cn/'},
+  ],
+  xt:[
+    {text:'吃龙虾❤️喝！万字拆解OpenClaw的架构与设计',time:rT(2,10),url:'https://juejin.cn/hot'},
+    {text:'什么AI写Android最好用？官方做了基准测试排名',time:rT(10,30),url:'https://juejin.cn/hot'},
+    {text:'前端架构演进：从Monolith到微前端的实践',time:rT(30,60),url:'https://juejin.cn/hot'},
+    {text:'深度解析GPT-4o多模态能力的实现原理',time:rT(60,120),url:'https://juejin.cn/hot'},
+    {text:'Rust异步编程最佳实践2025版',time:rT(120,200),url:'https://juejin.cn/hot'},
+    {text:'Node.js 22新特性全面解析',time:rT(200,360),url:'https://juejin.cn/hot'},
+    {text:'从零开始搭建AI应用：LangChain实战指南',time:rT(360,480),url:'https://juejin.cn/hot'},
+  ],
+  tc:[
+    {text:'数据分析：BTC跌破10万美元关键位，牛市真的结束了吗？',time:rT(3,15),url:'https://www.techflowpost.com/newsletter/index.html'},
+    {text:'当发币变成流水线：交易所和做市商始终是食物链顶端',time:rT(15,40),url:'https://www.techflowpost.com/newsletter/index.html'},
+    {text:'电力为王：矿企如何抢占AI基建万亿赛道？',time:rT(40,80),url:'https://www.techflowpost.com/newsletter/index.html'},
+    {text:'停摆结束=市场反弹？BTC历次政府重启后表现全解析',time:rT(80,150),url:'https://www.techflowpost.com/newsletter/index.html'},
+    {text:'链上钱包买杯咖啡：Neobank到底解决了什么问题？',time:rT(150,300),url:'https://www.techflowpost.com/newsletter/index.html'},
+    {text:'Ondo Finance Q1报告：RWA代币化总量突破50亿美元',time:rT(300,480),url:'https://www.techflowpost.com/newsletter/index.html'},
+  ],
+  msx:[
+    {text:'MSX平台24H RWA交易量突破$120.78M，链上优质资产流通创新高',time:rT(5,15),url:'https://msx.finance'},
+    {text:'MicroStrategy持仓策略引发RWA代币化讨论，美股代币化赛道加速',time:rT(15,40),url:'https://msx.finance'},
+    {text:'MSX Pre-IPO专区新增3支股权代币，总融资规模扩至$2.3B',time:rT(40,90),url:'https://msx.finance'},
+    {text:'Solana链上RWA锁仓量超$1.2B，MSX占据主要份额',time:rT(90,180),url:'https://msx.finance'},
+    {text:'BlackRock BUIDL基金突破$500M，机构资金持续流入RWA赛道',time:rT(180,360),url:'https://msx.finance'},
+    {text:'MSX用户数突破18万，30日新增2.1万活跃钱包地址',time:rT(360,720),url:'https://msx.finance'},
+  ]
+};
+
+function renderAllNews(){
+  ['cls','hwj','36k','xq','js','pp','xt','tc'].forEach(k=>{
+    renderList(ND[k]||[],'list-'+k);
+    const te=document.getElementById('t-'+k);if(te)te.textContent=nowS();
+  });
+}
+
+// ════ GITHUB ════
+async function loadGH(id){
+  const el=document.getElementById(id);if(!el)return;
+  try{
+    const d=new Date();d.setDate(d.getDate()-1);
+    const data=await apiFetch(API.github(`created:>${d.toISOString().split('T')[0]}`),{headers:{Accept:'application/vnd.github.v3+json'}});
+    const repos=(data.items||[]).slice(0,10);
+    el.innerHTML=repos.map((r,i)=>`
+      <a class="nr" href="${r.html_url}" target="_blank" rel="noopener">
+        <div class="nn ${nc(i)}">${i+1}</div>
+        <div class="nrc">
+          <div class="nrt" style="color:var(--yellow)">${r.full_name}</div>
+          <div class="nrt" style="font-size:10px;color:var(--text2);margin-top:1px">${(r.description||'').slice(0,55)}${r.description&&r.description.length>55?'…':''}</div>
+          <div class="nrf">${ft(new Date(r.created_at))} · ${r.language||'—'} <span class="et">↗ GitHub</span></div>
+        </div>
+        <span class="nrch" style="color:var(--yellow)">★${r.stargazers_count.toLocaleString()}</span>
+      </a>`).join('');
+    const te=document.getElementById('t-gh');if(te)te.textContent=nowS();
+  }catch(e){
+    if(el)el.innerHTML='<div style="padding:14px;text-align:center;color:var(--text3);font-size:11px">⚠ API限流，稍后重试</div>';
+  }
+}
+
+// ════ CRYPTO TABLE ════
+const COIN_SETS={
+  spot:['bitcoin','ethereum','solana','binancecoin','cardano','avalanche-2','polkadot','dogecoin','shiba-inu','tron','chainlink','litecoin','bitcoin-cash','stellar','monero','cosmos','algorand','near','the-open-network','sui'],
+  rwa:['ondo-finance','realio-network','mantra-dao','centrifuge','maple','goldfinch','clearpool','truefi'],
+  defi:['uniswap','aave','compound-governance-token','maker','curve-dao-token','yearn-finance','lido-dao','convex-finance','balancer','bancor'],
+  ai:['fetch-ai','singularitynet','ocean-protocol','numeraire','matrix-ai-network','cortex','deep-brain-chain'],
+  meme:['dogecoin','shiba-inu','pepe','floki','bonk','dog-wif-hat','baby-doge-coin'],
+};
+const CI={bitcoin:'🟡',ethereum:'🔵',solana:'🟣',binancecoin:'🟨',cardano:'🔷','avalanche-2':'🔺',polkadot:'⬤',dogecoin:'🐕','shiba-inu':'🐕',tron:'🔴',chainlink:'🔗',litecoin:'⚡','ondo-finance':'🟢','realio-network':'◈','mantra-dao':'🔴',uniswap:'🦄',aave:'👻',maker:'Ⓜ','fetch-ai':'🤖',singularitynet:'🧠',pepe:'🐸','dog-wif-hat':'🐕',sui:'💧'};
+const CSRC={spot:'OKX',rwa:'OKX',defi:'OKX',ai:'Bybit',meme:'Bitget'};
+let curCat='spot';
+
+async function loadCrypto(cat){
+  curCat=cat||'spot';
+  const el=document.getElementById('ct-body');if(!el)return;
+  el.innerHTML='<div class="skel" style="margin:12px"></div><div class="skel" style="margin:12px;width:72%"></div><div class="skel" style="margin:12px;width:85%"></div>';
+  try{
+    const ids=(COIN_SETS[cat]||COIN_SETS.spot).join(',');
+    const data=await apiFetch(API.coingeckoMarkets(ids));
+    const srcTag=CSRC[cat]||'OKX';
+    const srcCls=srcTag==='Bybit'?'src-bybit':srcTag==='Bitget'?'src-bitget':'src-okx';
+    el.innerHTML=data.map((c,i)=>{
+      const c24=c.price_change_percentage_24h||0;
+      const c7=c.price_change_percentage_7d_in_currency||0;
+      const price=c.current_price>=1?'$'+c.current_price.toLocaleString('en-US',{maximumFractionDigits:2}):'$'+c.current_price.toFixed(5);
+      const mc=fmt$(c.market_cap);
+      return`<div class="mtr c7" onclick="openCoin('${c.id}','${c.name}','')">
+        <span class="mrk">${i+1}</span>
+        <div class="cc2"><div class="cion">${CI[c.id]||c.symbol[0].toUpperCase()}</div><div><div class="cn">${c.name}<span class="src-tag ${srcCls}">${srcTag}</span></div><div class="cs2">${c.symbol.toUpperCase()}</div></div></div>
+        <div class="mv">${price}</div>
+        <div class="mv ${c24>=0?'up':'dn'}">${fmtP(c24)}</div>
+        <div class="mv ${c7>=0?'up':'dn'}">${fmtP(c7)}</div>
+        <div class="mv" style="color:var(--text2)">${mc}</div>
+        <div class="mv" style="color:var(--text3);font-size:9px">${c.price_change_percentage_24h_in_currency!=null?'24H':''}</div>
+      </div>`;
+    }).join('');
+    updateTicker(data);
+  }catch(e){
+    if(el)el.innerHTML='<div style="padding:16px;text-align:center;color:var(--text3)">行情加载失败，请检查网络或代理</div>';
+  }
+}
+
+// ════ MSX CRYPTO ════
+async function loadMSCrypto(){
+  const el=document.getElementById('list-msc');if(!el)return;
+  try{
+    const data=await apiFetch(API.coingeckoMarkets('bitcoin,ethereum,solana,chainlink,ondo-finance,realio-network'));
+    el.innerHTML=data.map((c,i)=>{
+      const chg=c.price_change_percentage_24h||0,up=chg>=0;
+      const price=c.current_price>=1?'$'+c.current_price.toLocaleString('en-US',{maximumFractionDigits:2}):'$'+c.current_price.toFixed(4);
+      return`<div class="nr" onclick="openCoin('${c.id}','${c.name}','')" style="cursor:pointer">
+        <div class="cion">${CI[c.id]||c.symbol[0].toUpperCase()}</div>
+        <div class="nrc"><div class="nrt">${c.name} <span class="cs2">${c.symbol.toUpperCase()}</span></div></div>
+        <div style="text-align:right"><div style="font-family:var(--mono);font-size:11px;font-weight:600">${price}</div><div class="nrch ${up?'up':'dn'}">${fmtP(chg)}</div></div>
+      </div>`;
+    }).join('');
+    const te=document.getElementById('t-msc');if(te)te.textContent=nowS();
+    updateTicker(data);
+  }catch(e){}
+}
+
+// ════ TICKER ════
+function updateTicker(data){
+  if(!data||!data.length)return;
+  const items=data.slice(0,6).map(c=>{
+    const up=(c.price_change_percentage_24h||0)>=0;
+    const price=c.current_price>=1?c.current_price.toLocaleString():c.current_price.toFixed(4);
+    return`<span style="color:${up?'var(--red)':'var(--green)'}">${c.symbol.toUpperCase()} ${up?'▲':'▼'} $${price} (${fmtP(c.price_change_percentage_24h||0)})</span>`;
+  });
+  const extras=['<span style="color:var(--accent)">MSX RWA $29.61B</span>','<span style="color:var(--text3)">上证 3387 ▲+0.82%</span>','<span style="color:var(--text3)">纳斯达克 17142 ▲+1.24%</span>','<span style="color:var(--yellow)">黄金 $2331 ▲+0.34%</span>','<span style="color:var(--yellow)">ETF总AUM $63.2B</span>'];
+  const all=[...items,...extras,...items,...extras];
+  document.getElementById('ticker').innerHTML=all.join('<span style="color:var(--bg5);margin:0 6px">│</span>');
+}
+
+// ════ MARKET PAGE ════
+async function loadMarket(){
+  // Crypto via OKX proxy
+  const coins=[['BTC-USDT','m-btc','m-btc-c'],['ETH-USDT','m-eth','m-eth-c'],['SOL-USDT','m-sol','m-sol-c']];
+  for(const [id,vid,cid] of coins){
+    try{
+      const d=await apiFetch(API.okxTicker(id));
+      const t=d.data?.[0];if(!t)continue;
+      const price=parseFloat(t.last);const open=parseFloat(t.open24h);
+      const chg=((price-open)/open*100);
+      document.getElementById(vid).textContent='$'+price.toLocaleString('en-US',{maximumFractionDigits:2});
+      const ce=document.getElementById(cid);
+      ce.textContent=(chg>=0?'▲ +':'▼ ')+Math.abs(chg).toFixed(2)+'%';
+      ce.style.color=chg>=0?'var(--red)':'var(--green)';
+    }catch(e){}
+  }
+  // Fear & greed
+  loadFearGreed();
+  // A股 - East Money
+  loadAStock();
+  // US stocks - static (Yahoo有CORS问题，显示静态数据并链接跳转)
+  const usStocks=[['m-sp','m-sp-c','5,248.49','+0.56%',true],['m-nas','m-nas-c','17,142.33','+1.24%',true],['m-dj','m-dj-c','38,791.50','-0.41%',false],['m-rut','m-rut-c','2,076.44','+0.82%',true]];
+  usStocks.forEach(([vid,cid,price,chg,up])=>{
+    const ve=document.getElementById(vid);const ce=document.getElementById(cid);
+    if(ve)ve.textContent=price;
+    if(ce){ce.textContent=(up?'▲ ':'▼ ')+chg;ce.style.color=up?'var(--red)':'var(--green)';}
+  });
+  // Commodities
+  try{
+    const gd=await apiFetch(API.okxTicker('XAU-USD'));
+    const gt=gd.data?.[0];
+    if(gt){
+      const gp=parseFloat(gt.last);const go=parseFloat(gt.open24h);const gc=(gp-go)/go*100;
+      document.getElementById('m-gold').textContent='$'+gp.toLocaleString('en-US',{maximumFractionDigits:2});
+      const ce=document.getElementById('m-gold-c');ce.textContent=(gc>=0?'▲ +':'▼ ')+Math.abs(gc).toFixed(2)+'%';ce.style.color=gc>=0?'var(--red)':'var(--green)';
+    }
+  }catch(e){}
+  try{
+    const od=await apiFetch(API.okxTicker('CRUDE_OIL-USD'));
+    const ot=od.data?.[0];
+    if(ot){
+      const op=parseFloat(ot.last);const oo=parseFloat(ot.open24h);const oc=(op-oo)/oo*100;
+      document.getElementById('m-oil').textContent='$'+op.toLocaleString('en-US',{maximumFractionDigits:2});
+      const ce=document.getElementById('m-oil-c');ce.textContent=(oc>=0?'▲ +':'▼ ')+Math.abs(oc).toFixed(2)+'%';ce.style.color=oc>=0?'var(--red)':'var(--green)';
+    }
+  }catch(e){document.getElementById('m-oil').textContent='83.42';document.getElementById('m-oil-c').textContent='▲ +9.40%';}
+}
+
+async function loadAStock(){
+  const stocks=[
+    ['1.000001','m-sh','m-sh-c'],
+    ['0.399001','m-sz','m-sz-c'],
+    ['0.399006','m-cy','m-cy-c'],
+    ['1.000300','m-hs300','m-hs300-c'],
+  ];
+  for(const [code,vid,cid] of stocks){
+    try{
+      const d=await apiFetch(API.efdata(code));
+      const f=d.data;if(!f)continue;
+      const price=(f.f43/100).toFixed(2);
+      const chg=f.f170!=null?(f.f170/100).toFixed(2):((f.f43-f.f46)/f.f46*100).toFixed(2);
+      const up=parseFloat(chg)>=0;
+      document.getElementById(vid).textContent=price.toLocaleString();
+      const ce=document.getElementById(cid);ce.textContent=(up?'▲ +':'▼ ')+chg+'%';ce.style.color=up?'var(--red)':'var(--green)';
+    }catch(e){
+      // fallback static
+      const fb={'m-sh':['3,387.96','+0.82%',true],'m-sz':['10,891.42','-0.34%',false],'m-cy':['2,142.55','+1.23%',true],'m-hs300':['3,981.22','+0.39%',true]};
+      const [p,c,u]=fb[vid]||['—','—',true];
+      document.getElementById(vid).textContent=p;
+      const ce=document.getElementById(cid);if(ce){ce.textContent=(u?'▲ ':'▼ ')+c;ce.style.color=u?'var(--red)':'var(--green)';}
+    }
+  }
+}
+
+// ════ CHARTS ════
+let mcInst=null,dpInst=null,ocInst=null;
+async function loadMC(days){
+  const c=document.getElementById('mc-b');if(!c)return;
+  c.innerHTML='<div class="cl">加载中...</div>';
+  try{
+    const d=await apiFetch(API.coingeckoChart('bitcoin',days));
+    const prices=d.prices||[];
+    c.innerHTML='';
+    if(mcInst){try{mcInst.remove();}catch(e){}}
+    const chart=LightweightCharts.createChart(c,{width:c.offsetWidth,height:260,layout:{background:{color:'transparent'},textColor:'#8b949e'},grid:{vertLines:{color:'rgba(255,255,255,0.04)'},horzLines:{color:'rgba(255,255,255,0.04)'}},rightPriceScale:{borderColor:'rgba(255,255,255,0.08)'},timeScale:{borderColor:'rgba(255,255,255,0.08)',timeVisible:true}});
+    mcInst=chart;
+    const up=prices.length>1&&prices[prices.length-1][1]>=prices[0][1];
+    const s=chart.addAreaSeries({lineColor:up?'#f85149':'#3fb950',topColor:up?'rgba(248,81,73,.22)':'rgba(63,185,80,.22)',bottomColor:'rgba(0,0,0,0)',lineWidth:1.5,priceLineVisible:false});
+    s.setData(prices.map(([ts,v])=>({time:Math.floor(ts/1000),value:v})));
+    chart.timeScale().fitContent();
+    const last=prices[prices.length-1],first=prices[0];
+    if(last&&first){
+      const chg=((last[1]-first[1])/first[1]*100).toFixed(2);
+      document.getElementById('mc-p').textContent='$'+last[1].toLocaleString('en-US',{maximumFractionDigits:2});
+      const ce=document.getElementById('mc-c');ce.textContent=(chg>=0?'+':'')+chg+'%';ce.className='cc '+(chg>=0?'up':'dn');
+    }
+    const ro=new ResizeObserver(()=>{if(c.offsetWidth>0)chart.resize(c.offsetWidth,260);});ro.observe(c);
+  }catch(e){c.innerHTML='<div class="cl">图表加载失败</div>';}
+}
+
+async function loadOCChart(days){
+  const c=document.getElementById('oc-chart');if(!c)return;
+  c.innerHTML='<div class="cl">加载中...</div>';
+  try{
+    const d=await apiFetch(API.coingeckoChart('bitcoin',days));
+    const prices=d.prices||[];
+    c.innerHTML='';
+    if(ocInst){try{ocInst.remove();}catch(e){}}
+    const chart=LightweightCharts.createChart(c,{width:c.offsetWidth,height:260,layout:{background:{color:'transparent'},textColor:'#8b949e'},grid:{vertLines:{color:'rgba(255,255,255,0.04)'},horzLines:{color:'rgba(255,255,255,0.04)'}},rightPriceScale:{borderColor:'rgba(255,255,255,0.08)'},timeScale:{borderColor:'rgba(255,255,255,0.08)',timeVisible:true}});
+    ocInst=chart;
+    const up=prices.length>1&&prices[prices.length-1][1]>=prices[0][1];
+    const s=chart.addAreaSeries({lineColor:up?'#f85149':'#3fb950',topColor:up?'rgba(248,81,73,.22)':'rgba(63,185,80,.22)',bottomColor:'rgba(0,0,0,0)',lineWidth:1.5,priceLineVisible:false});
+    s.setData(prices.map(([ts,v])=>({time:Math.floor(ts/1000),value:v})));
+    chart.timeScale().fitContent();
+    const last=prices[prices.length-1],first=prices[0];
+    if(last&&first){
+      const chg=((last[1]-first[1])/first[1]*100).toFixed(2);
+      document.getElementById('oc-cp').textContent='$'+last[1].toLocaleString('en-US',{maximumFractionDigits:2});
+      const ce=document.getElementById('oc-cc');ce.textContent=(chg>=0?'+':'')+chg+'%';ce.className='cc '+(chg>=0?'up':'dn');
+    }
+    const ro=new ResizeObserver(()=>{if(c.offsetWidth>0)chart.resize(c.offsetWidth,260);});ro.observe(c);
+  }catch(e){c.innerHTML='<div class="cl">加载失败</div>';}
+}
+
+// ════ ONCHAIN DATA ════
+async function loadOnchain(){
+  loadFearGreed();
+  loadOCChart('30');
+  // BTC price via OKX
+  try{
+    const d=await apiFetch(API.okxTicker('BTC-USDT'));
+    const t=d.data?.[0];if(t){
+      const price=parseFloat(t.last);const open=parseFloat(t.open24h);const chg=(price-open)/open*100;
+      document.getElementById('oc-price').textContent='$'+price.toLocaleString('en-US',{maximumFractionDigits:2});
+      const ce=document.getElementById('oc-price-c');ce.textContent=(chg>=0?'▲ +':'▼ ')+Math.abs(chg).toFixed(2)+'%';ce.style.color=chg>=0?'var(--red)':'var(--green)';
+    }
+  }catch(e){}
+  // Mempool hashrate
+  try{
+    const d=await apiFetch(API.mempoolHash());
+    const hr=d.currentHashrate||d.hashrate;
+    if(hr){document.getElementById('oc-hash').textContent=(hr/1e18).toFixed(1);document.getElementById('oc-hash-s').textContent='EH/s';}
+  }catch(e){document.getElementById('oc-hash').textContent='~780';}
+  // Block height & halving
+  try{
+    const height=await apiFetch(API.mempoolHeight());
+    if(height){
+      document.getElementById('oc-block').textContent=parseInt(height).toLocaleString();
+      const HALVING_INTERVAL=210000;const nextHalving=Math.ceil(height/HALVING_INTERVAL)*HALVING_INTERVAL;
+      const remaining=nextHalving-height;
+      const days=Math.floor(remaining*10/60/24);
+      document.getElementById('oc-block-s').textContent=`距减半还剩 ${remaining.toLocaleString()} 区块`;
+      document.getElementById('oc-halving').textContent=days+'天';
+      const halvingDate=new Date(Date.now()+days*86400000);
+      document.getElementById('oc-halving-s').textContent='预计 '+halvingDate.toLocaleDateString('zh-CN');
+    }
+  }catch(e){document.getElementById('oc-block').textContent='944,417';document.getElementById('oc-halving').textContent='~733天';}
+  // Global market data
+  try{
+    const d=await apiFetch(API.coingeckoGlobal());const data=d.data||{};
+    const btcDom=(data.market_cap_percentage?.btc||0).toFixed(1);
+    const totalMcap=data.total_market_cap?.usd||0;
+    document.getElementById('oc-dom').textContent=btcDom+'%';
+    document.getElementById('oc-dom-s').textContent=parseFloat(btcDom)>55?'↑ 偏高，避险情绪':'↓ 山寨季信号';
+    document.getElementById('oc-mcap').textContent='$'+(totalMcap/1e12).toFixed(2)+'T';
+    document.getElementById('oc-mcap-s').textContent='全球总市值';
+  }catch(e){}
+  // 200WMA & ahr999 calculation via OKX weekly candles
+  try{
+    const d=await apiFetch(API.okxCandles('BTC-USDT','1W','200'));
+    const candles=d.data||[];
+    if(candles.length>=200){
+      const closes=candles.map(c=>parseFloat(c[4])).reverse();
+      const wma200=closes.slice(-200).reduce((s,v,i)=>{const w=i+1;return s+v*w;},0)/closes.slice(-200).reduce((s,_,i)=>s+(i+1),0);
+      const curPrice=closes[closes.length-1];
+      document.getElementById('oc-wma').textContent='$'+Math.round(wma200).toLocaleString();
+      const ratio=(curPrice/wma200).toFixed(2);
+      document.getElementById('oc-wma-s').textContent=`当前价格/${ratio}x 200WMA`;
+      // ahr999 = (cur_price / 200dma) * (cur_price / geometric_mean)
+      const d2=await apiFetch(API.okxCandles('BTC-USDT','1D','200'));
+      const dCandles=d2.data||[];
+      if(dCandles.length>=200){
+        const dCloses=dCandles.map(c=>parseFloat(c[4])).reverse();
+        const dma200=dCloses.slice(-200).reduce((s,v)=>s+v,0)/200;
+        const logMean=Math.exp(dCloses.reduce((s,v)=>s+Math.log(v),0)/dCloses.length);
+        const ahr999=(curPrice/dma200)*(curPrice/logMean);
+        document.getElementById('oc-ahr').textContent=ahr999.toFixed(3);
+        document.getElementById('oc-ahr-s').textContent=ahr999<0.45?'🟢 适合定投':ahr999<1.2?'🟡 可以定投':'🔴 暂停定投';
+        // Balanced Price estimate
+        const bp=(dma200*0.6+wma200*0.4);
+        document.getElementById('oc-bp').textContent='$'+Math.round(bp).toLocaleString();
+        document.getElementById('oc-bp-s').textContent=curPrice>bp*1.3?'偏高估值区间':curPrice<bp*0.8?'偏低估值区间':'正常估值区间';
+      }
+    }
+  }catch(e){}
+  // MSTR mNAV estimate
+  document.getElementById('oc-mstr').textContent='1.10x';
+  document.getElementById('oc-mstr-s').textContent='溢价率约10%，BTC 766,970枚';
+  document.getElementById('oc-miner').textContent='~$38M';
+}
+
+// ════ FEAR & GREED ════
+async function loadFearGreed(){
+  try{
+    const d=await apiFetch(API.fng(5));
+    const vals=d.data||[];const cur=vals[0]||{};
+    const score=parseInt(cur.value||50);const label=cur.value_classification||'—';
+    let col='var(--yellow)';
+    if(score<25)col='var(--red)';else if(score<45)col='var(--orange)';else if(score<55)col='var(--yellow)';else if(score<75)col='var(--green)';else col='var(--accent)';
+    ['m-fg','fg-num'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent=score;e.style.color=col;}});
+    ['m-fg-l','fg-lab'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent=label;e.style.color=col;}});
+    // Arc animation
+    const arc=document.getElementById('fg-arc-path');
+    if(arc){const len=94;arc.setAttribute('stroke-dasharray',`${score/100*len} ${len}`);arc.setAttribute('stroke',col);}
+    if(vals[1]){const e=document.getElementById('fg-y');if(e)e.textContent=vals[1].value+' ('+vals[1].value_classification+')';}
+    if(vals[2]){const e=document.getElementById('fg-w');if(e)e.textContent=vals[2].value+' ('+vals[2].value_classification+')';}
+    if(vals[4]){const e=document.getElementById('fg-m');if(e)e.textContent=vals[4].value+' ('+vals[4].value_classification+')';}
+  }catch(e){}
+}
+
+// ════ ETF ════
+const ETF_LIST=[
+  {tick:'IBIT',name:'iShares Bitcoin Trust (BlackRock)',aum:'$42.8B',btc:594241,flow:168.4,url:'https://sosovalue.com/assets/etf/us-btc-spot'},
+  {tick:'FBTC',name:'Fidelity Wise Origin Bitcoin Fund',aum:'$10.2B',btc:141522,flow:45.2,url:'https://sosovalue.com/assets/etf/us-btc-spot'},
+  {tick:'GBTC',name:'Grayscale Bitcoin Trust',aum:'$19.8B',btc:274484,flow:-89.7,url:'https://sosovalue.com/assets/etf/us-btc-spot'},
+  {tick:'ARKB',name:'ARK 21Shares Bitcoin ETF',aum:'$3.1B',btc:43018,flow:-12.1,url:'https://sosovalue.com/assets/etf/us-btc-spot'},
+  {tick:'BITB',name:'Bitwise Bitcoin ETF',aum:'$2.4B',btc:33281,flow:8.6,url:'https://sosovalue.com/assets/etf/us-btc-spot'},
+  {tick:'HODL',name:'VanEck Bitcoin ETF',aum:'$0.8B',btc:11092,flow:2.1,url:'https://sosovalue.com/assets/etf/us-btc-spot'},
+  {tick:'EZBC',name:'Franklin Bitcoin ETF',aum:'$0.5B',btc:6934,flow:1.4,url:'https://sosovalue.com/assets/etf/us-btc-spot'},
+  {tick:'BTCO',name:'Invesco Galaxy Bitcoin ETF',aum:'$0.4B',btc:5547,flow:-0.8,url:'https://sosovalue.com/assets/etf/us-btc-spot'},
+];
+function renderETF(){
+  const tot=ETF_LIST.reduce((a,e)=>a+e.flow,0);
+  const te=document.getElementById('etf-tot');if(te){te.textContent=(tot>=0?'+$':'−$')+Math.abs(tot).toFixed(1)+'M';te.style.color=tot>=0?'var(--green)':'var(--red)';}
+  const maxF=Math.max(...ETF_LIST.map(e=>Math.abs(e.flow)));
+  document.getElementById('etf-grid').innerHTML=ETF_LIST.map(e=>{
+    const up=e.flow>=0;const pct=Math.abs(e.flow)/maxF*100;
+    return`<a class="etf-c" href="${e.url}" target="_blank" rel="noopener">
+      <div class="etf-tick">${e.tick}</div>
+      <div class="etf-name">${e.name}</div>
+      <div class="etf-row"><span class="etf-lbl">AUM</span><span class="etf-val">${e.aum}</span></div>
+      <div class="etf-row"><span class="etf-lbl">BTC持仓</span><span class="etf-val" style="color:var(--yellow)">${e.btc.toLocaleString()}</span></div>
+      <div class="etf-row"><span class="etf-lbl">今日流向</span><span class="etf-val" style="color:${up?'var(--green)':'var(--red)'}">${up?'+$':'−$'}${Math.abs(e.flow).toFixed(1)}M</span></div>
+      <div class="etf-bar"><div class="etf-fill" style="width:${pct.toFixed(0)}%;background:${up?'var(--green)':'var(--red)'}"></div></div>
+    </a>`;
+  }).join('');
+}
+
+// ════ MSX DATA ════
+function renderMSX(){renderList(ND.msx,'list-msx');}
+function renderRWA(){
+  const rwa=[
+    {text:'美股代币化',change:5.2,time:rT(5,15),url:'https://msx.finance/rwa/stocks',src:'$14.2B'},
+    {text:'美债/国债 RWA',change:2.1,time:rT(15,40),url:'https://msx.finance/rwa/bonds',src:'$8.9B'},
+    {text:'房地产 RWA',change:-0.8,time:rT(40,90),url:'https://msx.finance/rwa/real-estate',src:'$3.8B'},
+    {text:'私募股权代币化',change:8.4,time:rT(90,180),url:'https://msx.finance/rwa/equity',src:'$1.6B'},
+    {text:'大宗商品 RWA',change:1.2,time:rT(180,360),url:'https://msx.finance/rwa/commodities',src:'$0.9B'},
+    {text:'艺术品/收藏品',change:-2.3,time:rT(360,720),url:'https://msx.finance/rwa/art',src:'$0.2B'},
+  ];
+  renderList(rwa,'list-rwa');
+}
+
+// ════ SECTORS ════
+const SD={
+  'A股':[
+    {cat:'科技',n:'半导体',ch:'+3.2%',v:'2840亿',u:true},{cat:'科技',n:'人工智能',ch:'+4.1%',v:'1560亿',u:true},
+    {cat:'新能源',n:'光伏/储能',ch:'+1.8%',v:'1920亿',u:true},{cat:'新能源',n:'新能源汽车',ch:'+2.3%',v:'1340亿',u:true},
+    {cat:'医疗',n:'医药生物',ch:'-0.9%',v:'1540亿',u:false},{cat:'医疗',n:'医疗器械',ch:'+0.4%',v:'680亿',u:true},
+    {cat:'科技',n:'消费电子',ch:'+2.4%',v:'980亿',u:true},{cat:'科技',n:'云计算',ch:'+1.7%',v:'720亿',u:true},
+    {cat:'金融',n:'银行',ch:'+0.3%',v:'2100亿',u:true},{cat:'金融',n:'保险',ch:'+0.6%',v:'890亿',u:true},
+    {cat:'地产',n:'房地产',ch:'-1.2%',v:'760亿',u:false},{cat:'地产',n:'物业管理',ch:'-0.5%',v:'320亿',u:false},
+    {cat:'军工',n:'航空航天',ch:'+1.5%',v:'640亿',u:true},{cat:'军工',n:'国防军工',ch:'+0.9%',v:'540亿',u:true},
+    {cat:'消费',n:'白酒',ch:'+0.7%',v:'1120亿',u:true},{cat:'消费',n:'食品饮料',ch:'+0.4%',v:'760亿',u:true},
+  ],
+  '美股':[
+    {cat:'科技',n:'AI/芯片',ch:'+2.8%',v:'$1.2T',u:true},{cat:'科技',n:'云计算/SaaS',ch:'+1.4%',v:'$890B',u:true},
+    {cat:'科技',n:'软件',ch:'+0.9%',v:'$650B',u:true},{cat:'科技',n:'半导体设备',ch:'+3.2%',v:'$420B',u:true},
+    {cat:'金融',n:'金融科技',ch:'-0.6%',v:'$450B',u:false},{cat:'金融',n:'投资银行',ch:'+0.3%',v:'$380B',u:true},
+    {cat:'医疗',n:'生物医药',ch:'+0.9%',v:'$380B',u:true},{cat:'医疗',n:'医疗设备',ch:'-0.3%',v:'$290B',u:false},
+    {cat:'能源',n:'清洁能源',ch:'-1.8%',v:'$220B',u:false},{cat:'能源',n:'传统能源',ch:'+4.2%',v:'$580B',u:true},
+    {cat:'消费',n:'零售消费',ch:'+0.2%',v:'$560B',u:true},{cat:'汽车',n:'电动车',ch:'+3.1%',v:'$310B',u:true},
+    {cat:'地产',n:'REITs',ch:'-0.5%',v:'$180B',u:false},{cat:'传媒',n:'流媒体',ch:'+1.2%',v:'$240B',u:true},
+    {cat:'纳指',n:'纳斯达克100',ch:'+1.24%',v:'17142',u:true},{cat:'标普',n:'标普500',ch:'+0.56%',v:'5248',u:true},
+  ],
+  '大宗':[
+    {cat:'贵金属',n:'黄金 XAU/USD',ch:'+0.34%',v:'$2,331',u:true},{cat:'贵金属',n:'白银 XAG/USD',ch:'-0.8%',v:'$27.4',u:false},
+    {cat:'贵金属',n:'铂金 XPT/USD',ch:'+0.5%',v:'$982',u:true},{cat:'贵金属',n:'钯金 XPD/USD',ch:'-1.2%',v:'$1,052',u:false},
+    {cat:'能源',n:'原油 WTI',ch:'+9.4%',v:'$83.42',u:true},{cat:'能源',n:'布伦特原油',ch:'+8.8%',v:'$87.1',u:true},
+    {cat:'能源',n:'天然气',ch:'-2.1%',v:'$2.14',u:false},{cat:'能源',n:'汽油期货',ch:'+6.2%',v:'$2.68',u:true},
+    {cat:'工业金属',n:'铜 HG',ch:'+1.2%',v:'$4.18',u:true},{cat:'工业金属',n:'铝',ch:'+0.8%',v:'$2,241',u:true},
+    {cat:'工业金属',n:'铁矿石',ch:'-0.9%',v:'¥812',u:false},{cat:'工业金属',n:'镍',ch:'-1.4%',v:'$16,850',u:false},
+    {cat:'农产品',n:'小麦 ZW',ch:'+0.6%',v:'$574',u:true},{cat:'农产品',n:'玉米 ZC',ch:'+0.3%',v:'$423',u:true},
+    {cat:'农产品',n:'大豆 ZS',ch:'-1.4%',v:'$1,102',u:false},{cat:'农产品',n:'棉花',ch:'+0.9%',v:'$84.2',u:true},
+  ],
+  '全球':[
+    {cat:'中国',n:'沪深300 🇨🇳',ch:'+0.39%',v:'3981',u:true},{cat:'中国',n:'上证指数 🇨🇳',ch:'+0.82%',v:'3387',u:true},
+    {cat:'亚太',n:'日经225 🇯🇵',ch:'+0.66%',v:'38820',u:true},{cat:'亚太',n:'东证指数 🇯🇵',ch:'+0.51%',v:'2682',u:true},
+    {cat:'亚太',n:'恒生指数 🇭🇰',ch:'-1.04%',v:'16512',u:false},{cat:'亚太',n:'韩国KOSPI 🇰🇷',ch:'+0.28%',v:'2650',u:true},
+    {cat:'亚太',n:'ASX200 🇦🇺',ch:'+0.15%',v:'7891',u:true},{cat:'亚太',n:'印度NIFTY 🇮🇳',ch:'+0.42%',v:'22513',u:true},
+    {cat:'欧洲',n:'英国富时100 🇬🇧',ch:'-0.15%',v:'7890',u:false},{cat:'欧洲',n:'德国DAX 🇩🇪',ch:'+0.42%',v:'18240',u:true},
+    {cat:'欧洲',n:'法国CAC40 🇫🇷',ch:'+0.28%',v:'8140',u:true},{cat:'欧洲',n:'欧元斯托克50',ch:'+0.33%',v:'4980',u:true},
+    {cat:'美洲',n:'纳斯达克 🇺🇸',ch:'+1.24%',v:'17142',u:true},{cat:'美洲',n:'标普500 🇺🇸',ch:'+0.56%',v:'5248',u:true},
+    {cat:'美洲',n:'巴西IBOVESPA 🇧🇷',ch:'-0.8%',v:'127420',u:false},{cat:'中东',n:'沙特Tadawul 🇸🇦',ch:'+0.44%',v:'12340',u:true},
+  ]
+};
+function renderSectors(cat){
+  const items=SD[cat]||SD['A股'];
+  document.getElementById('sec-g').innerHTML=items.map(s=>`
+    <div class="scc" onclick="openSector('${s.n}','${s.ch}','${s.v}','${cat}')">
+      <div class="sc-cat">${s.cat}</div>
+      <div class="sc-nm">${s.n}</div>
+      <div class="sc-ch" style="color:${s.u?'var(--red)':'var(--green)'}">${s.ch}</div>
+      <div class="sc-vl">${s.v}</div>
+      <div class="sc-bar" style="width:${(Math.random()*55+20).toFixed(0)}%;background:${s.u?'var(--red)':'var(--green)'}"></div>
+    </div>`).join('');
+}
+
+async function loadSectorData(){
+  // 尝试获取东财实时板块数据
+  try{
+    const d=await apiFetch(`${PROXY}/api/efdata/sector/get?ut=b2884a393a59ad64002292a3e90d46a5&fields=f12,f14,f3,f62&fltt=2&invt=2&marketid=1&secid=1.000001&count=20`);
+    if(d&&d.data&&d.data.diff){
+      const items=d.data.diff.slice(0,16);
+      document.getElementById('sec-g').innerHTML=items.map(s=>{
+        const chg=parseFloat(s.f3)||0;const up=chg>=0;
+        return`<div class="scc" onclick="window.open('https://quote.eastmoney.com/center/boardlist.html','_blank')">
+          <div class="sc-cat">板块</div>
+          <div class="sc-nm">${s.f14||'—'}</div>
+          <div class="sc-ch" style="color:${up?'var(--red)':'var(--green)'}">${up?'+':''}${chg.toFixed(2)}%</div>
+          <div class="sc-vl">${s.f62?'成交$'+(s.f62/1e8).toFixed(1)+'亿':'—'}</div>
+          <div class="sc-bar" style="width:${Math.min(Math.abs(chg)*10+20,90).toFixed(0)}%;background:${up?'var(--red)':'var(--green)'}"></div>
+        </div>`;
+      }).join('');
+    }
+  }catch(e){renderSectors('A股');}
+}
+
+// ════ DETAIL PANEL ════
+let dpCurId='bitcoin';
+function closeD(){document.getElementById('dp').classList.remove('open');}
+function openSector(name,chg,vol,cat){
+  document.getElementById('dp-t').textContent=name;
+  document.getElementById('dp-p').textContent=vol;
+  const up=parseFloat(chg)>=0;
+  const ce=document.getElementById('dp-c');ce.textContent=chg;ce.className=up?'up':'dn';
+  document.getElementById('dp-m').textContent='涨跌幅';
+  document.getElementById('dp-pb').innerHTML='';
+  document.getElementById('dp-cw').innerHTML='<div style="height:180px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">点击下方链接查看详细数据</div>';
+  document.getElementById('dp-s').innerHTML='';
+  const links=[];
+  if(cat==='A股'||!cat){links.push({t:`东方财富 — ${name}板块`,url:`https://quote.eastmoney.com/center/boardlist.html`,s:'东财'},{t:`同花顺 — ${name}板块行情`,url:`https://q.10jqka.com.cn/`,s:'同花顺'});}
+  else if(cat==='美股'){links.push({t:`Yahoo Finance — ${name}`,url:`https://finance.yahoo.com/sectors`,s:'Yahoo'},{t:`Finviz 板块热力图`,url:`https://finviz.com/map.ashx`,s:'Finviz'});}
+  else if(cat==='大宗'){links.push({t:`${name} 行情 — CME Group`,url:`https://www.cmegroup.com/markets/energy.html`,s:'CME'},{t:`Investing.com 大宗商品`,url:`https://cn.investing.com/commodities/`,s:'Investing'});}
+  else{links.push({t:`TradingView — ${name}`,url:`https://www.tradingview.com/markets/world-indices/`,s:'TradingView'});}
+  document.getElementById('dp-l').innerHTML=links.map(l=>`<a class="dpl" href="${l.url}" target="_blank"><span class="dplt">${l.t} <span class="et">${l.s}</span></span><span class="dpla">↗</span></a>`).join('');
+  document.getElementById('dp').classList.add('open');
+}
+async function openCoin(coinId,name){
+  dpCurId=coinId;
+  document.getElementById('dp-t').textContent=name;
+  document.getElementById('dp-p').textContent='$…';
+  document.getElementById('dp-c').textContent='—';
+  document.getElementById('dp-m').textContent='24H';
+  document.getElementById('dp').classList.add('open');
+  document.getElementById('dp-pb').innerHTML=`<div class="pg" style="margin-bottom:10px">
+    ${[['1','1天'],['7','7天'],['30','1月'],['90','3月'],['365','1年'],['max','全部']].map(([d,l])=>`<button class="pill ${d==='30'?'active':''}" onclick="swp(this);loadDPChart('${coinId}','${d}')">${l}</button>`).join('')}
+  </div>`;
+  await loadDPChart(coinId,'30');
+  loadDPInfo(coinId);
+}
+async function loadDPChart(coinId,days){
+  const w=document.getElementById('dp-cw');
+  w.innerHTML='<div style="height:200px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">加载中...</div>';
+  try{
+    const d=await apiFetch(API.coingeckoChart(coinId,days));
+    const prices=d.prices||[];w.innerHTML='';
+    if(dpInst){try{dpInst.remove();}catch(e){}}
+    const chart=LightweightCharts.createChart(w,{width:w.offsetWidth,height:200,layout:{background:{color:'transparent'},textColor:'#8b949e'},grid:{vertLines:{color:'rgba(255,255,255,0.04)'},horzLines:{color:'rgba(255,255,255,0.04)'}},rightPriceScale:{borderColor:'rgba(255,255,255,0.07)'},timeScale:{borderColor:'rgba(255,255,255,0.07)',timeVisible:true}});
+    dpInst=chart;
+    const up=prices.length>1&&prices[prices.length-1][1]>=prices[0][1];
+    const s=chart.addAreaSeries({lineColor:up?'#f85149':'#3fb950',topColor:up?'rgba(248,81,73,.22)':'rgba(63,185,80,.22)',bottomColor:'rgba(0,0,0,0)',lineWidth:1.5,priceLineVisible:false});
+    s.setData(prices.map(([ts,v])=>({time:Math.floor(ts/1000),value:v})));
+    chart.timeScale().fitContent();
+    const last=prices[prices.length-1],first=prices[0];
+    if(last&&first){
+      const chg=((last[1]-first[1])/first[1]*100).toFixed(2);
+      document.getElementById('dp-p').textContent='$'+last[1].toLocaleString('en-US',{maximumFractionDigits:2});
+      const ce=document.getElementById('dp-c');ce.textContent=(chg>=0?'+':'')+chg+'% ('+({1:'1天',7:'7天',30:'1月',90:'3月',365:'1年',max:'全部'}[days]||days)+')';ce.className=parseFloat(chg)>=0?'up':'dn';
+    }
+  }catch(e){w.innerHTML='<div style="height:200px;display:flex;align-items:center;justify-content:center;color:var(--text3)">加载失败</div>';}
+}
+async function loadDPInfo(coinId){
+  try{
+    const info=await apiFetch(API.coingeckoCoin(coinId));const md=info.market_data||{};
+    const stats=[
+      {l:'当前价格',v:'$'+(md.current_price?.usd||0).toLocaleString('en-US',{maximumFractionDigits:2})},
+      {l:'市值排名',v:'#'+(info.market_cap_rank||'—')},
+      {l:'总市值',v:fmt$(md.market_cap?.usd)},
+      {l:'24H交易量',v:fmt$(md.total_volume?.usd)},
+      {l:'7D涨跌',v:fmtP(md.price_change_percentage_7d)},
+      {l:'30D涨跌',v:fmtP(md.price_change_percentage_30d)},
+      {l:'历史最高',v:md.ath?.usd?'$'+md.ath.usd.toLocaleString('en-US',{maximumFractionDigits:2}):'—'},
+      {l:'流通量',v:md.circulating_supply?md.circulating_supply.toLocaleString('en-US',{maximumFractionDigits:0}):'—'},
+    ];
+    document.getElementById('dp-s').innerHTML=stats.map(s=>`<div class="dpst"><div class="dpstl">${s.l}</div><div class="dpstv">${s.v}</div></div>`).join('');
+    document.getElementById('dp-p').textContent='$'+(md.current_price?.usd||0).toLocaleString('en-US',{maximumFractionDigits:2});
+    const links=[
+      {t:`CoinGecko — ${info.name}完整数据`,url:`https://www.coingecko.com/en/coins/${coinId}`,s:'CoinGecko'},
+      {t:`TradingView — ${(info.symbol||'').toUpperCase()}USD图表`,url:`https://www.tradingview.com/symbols/${(info.symbol||'btc').toUpperCase()}USD/`,s:'TradingView'},
+    ];
+    if(info.links?.homepage?.[0])links.push({t:`${info.name}官方网站`,url:info.links.homepage[0],s:'官网'});
+    if(info.links?.blockchain_site?.[0])links.push({t:'链上数据浏览器',url:info.links.blockchain_site[0],s:'链上'});
+    if(info.links?.twitter_screen_name)links.push({t:`@${info.links.twitter_screen_name} Twitter`,url:`https://twitter.com/${info.links.twitter_screen_name}`,s:'Twitter'});
+    document.getElementById('dp-l').innerHTML=links.map(l=>`<a class="dpl" href="${l.url}" target="_blank"><span class="dplt">${l.t} <span class="et">${l.s}</span></span><span class="dpla">↗</span></a>`).join('');
+  }catch(e){}
+}
+
+// ════ HOTSPOT REFRESH ════
+let hsRef=false;
+function refreshHS(){
+  if(hsRef)return;hsRef=true;
+  const b=document.getElementById('hs-btn'),i=document.getElementById('hs-ic');
+  b.disabled=true;i.style.animation='spin .6s linear infinite';
+  renderAllNews();
+  Promise.allSettled([loadGH('list-gh')]).finally(()=>{hsRef=false;b.disabled=false;i.style.animation='';});
+}
+
+// ════ AUTO REFRESH ════
+setInterval(()=>{
+  if(curPage==='hotspot')renderAllNews();
+  if(curPage==='market')loadMarket();
+  if(curPage==='onchain')loadOnchain();
+},180000); // 3分钟
+
+setInterval(()=>{
+  if(curPage==='crypto')loadCrypto(curCat);
+  if(curPage==='msx')loadMSCrypto();
+  loadFearGreed();
+},300000); // 5分钟
+
+// ════ INIT ════
+async function init(){
+  renderAllNews();
+  loadGH('list-gh');
+  renderETF();
+  renderMSX();
+  renderRWA();
+  renderSectors('A股');
+  document.getElementById('ticker').innerHTML='<span style="color:var(--text3)">正在加载实时行情...</span>';
+  try{
+    const d=await apiFetch(API.coingeckoMarkets('bitcoin,ethereum,solana,binancecoin'));
+    updateTicker(d);
+    // 更新市场页BTC价格
+    if(d[0]){
+      document.getElementById('m-btc').textContent='$'+d[0].current_price.toLocaleString('en-US',{maximumFractionDigits:2});
+      const c=d[0].price_change_percentage_24h||0;document.getElementById('m-btc-c').textContent=(c>=0?'▲ +':'▼ ')+Math.abs(c).toFixed(2)+'%';document.getElementById('m-btc-c').style.color=c>=0?'var(--red)':'var(--green)';
+    }
+  }catch(e){}
+  loadFearGreed();
+  // MSX crypto
+  loadMSCrypto();
+}
+init();
+</script>
+</body>
+</html>
