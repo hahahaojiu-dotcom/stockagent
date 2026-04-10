@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MktDesk — 市场终端</title>
+<!-- K线图库 -->
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+<!-- 全局样式 -->
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-m">M</div>
+    MktDesk<span class="logo-sub">市场终端</span>
+  </div>
+  <nav>
+    <button class="ni active" onclick="nav('hotspot')">热点追踪</button>
+    <button class="ni" onclick="nav('market')">市场总览</button>
+    <button class="ni" onclick="nav('crypto')">加密货币</button>
+    <button class="ni" onclick="nav('onchain')">链上数据</button>
+    <button class="ni" onclick="nav('sector')">板块行情</button>
+    <button class="ni" onclick="nav('msx')">◈ MSX & ETF</button>
+  </nav>
+  <div class="tb-right">
+    <div class="live-b"><div class="ldot"></div>LIVE</div>
+    <span id="clock">--:--:--</span>
+  </div>
+</div>
+
+<div class="app">
+<div class="sb">
+  <button class="si active" data-tip="热点追踪" onclick="nav('hotspot')">🔥</button>
+  <button class="si" data-tip="市场总览" onclick="nav('market')">📊</button>
+  <button class="si" data-tip="加密货币" onclick="nav('crypto')">₿</button>
+  <button class="si" data-tip="链上数据" onclick="nav('onchain')">⛓</button>
+  <button class="si" data-tip="板块行情" onclick="nav('sector')">🗂</button>
+  <div class="ssep"></div>
+  <button class="si" data-tip="MSX & ETF" onclick="nav('msx')" style="color:var(--accent)">◈</button>
+</div>
+
+<div class="main">
+
+<!-- ══ HOTSPOT ══ -->
+<div class="page active" id="page-hotspot">
+<div class="ps">
+  <div class="ph">
+    <span class="pt">热点追踪</span>
+    <div class="pg">
+      <button class="pill active" onclick="filterHS('all',this)">全部</button>
+      <button class="pill" onclick="filterHS('finance',this)">财经</button>
+      <button class="pill" onclick="filterHS('crypto',this)">加密</button>
+      <button class="pill" onclick="filterHS('tech',this)">科技</button>
+    </div>
+    <div class="sp"></div>
+    <button class="abtn" id="hs-btn" onclick="refreshHS()"><span id="hs-ic">↻</span> 刷新</button>
+  </div>
+
+  <!-- 财经 -->
+  <div class="hs-group" data-cat="finance">
+    <div class="news-row news-row-2h">
+      <div class="nc">
+        <div class="nch"><span class="ncs">财联社</span><span class="bdg bg">电报</span><span class="nct" id="t-cls">—</span></div>
+        <div class="nb" id="list-cls"><div class="skel"></div><div class="skel" style="width:80%"></div></div>
+      </div>
+      <div class="nc">
+        <div class="nch"><span class="ncs">华尔街见闻</span><span class="bdg bb">快讯</span><span class="nct" id="t-hwj">—</span></div>
+        <div class="nb" id="list-hwj"></div>
+      </div>
+      <div class="nc">
+        <div class="nch"><span class="ncs">36氪</span><span class="bdg bb">快讯</span><span class="nct" id="t-36k">—</span></div>
+        <div class="nb" id="list-36k"></div>
+      </div>
+    </div>
+    <div class="news-row news-row-3">
+      <div class="nc">
+        <div class="nch"><span class="ncs">金十数据</span><span class="bdg bg">快讯</span><span class="nct" id="t-js">—</span></div>
+        <div class="nb" id="list-js"></div>
+      </div>
+      <div class="nc">
+        <div class="nch"><span class="ncs">澎湃新闻</span><span class="bdg br">热榜</span><span class="nct" id="t-pp">—</span></div>
+        <div class="nb" id="list-pp"></div>
+      </div>
+      <div class="nc">
+        <div class="nch"><span class="ncs">雪球</span><span class="bdg br">热门股</span><span class="nct" id="t-xq">—</span></div>
+        <div class="nb" id="list-xq"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 经济数据日历 -->
+  <div class="hs-group" data-cat="finance">
+    <div class="stit">📅 美国经济数据日历（本周）</div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <!-- 加密 -->
+  <div class="hs-group" data-cat="crypto">
+    <div class="news-row news-row-2">
+      <div class="nc">
+        <div class="nch"><span class="ncs" style="color:var(--accent)">The Block</span><span class="bdg bg">Web3快讯</span><span class="nct" id="t-tc">—</span></div>
+        <div class="nb" id="list-tc"></div>
+      </div>
+      <div class="nc">
+        <div class="nch"><span class="ncs">金十数据·加密</span><span class="bdg bb">快讯</span><span class="nct" id="t-js2">—</span></div>
+        <div class="nb" id="list-js2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 科技 -->
+  <div class="hs-group" data-cat="tech">
+    <div class="news-row news-row-3">
+      <div class="nc">
+        <div class="nch"><span class="ncs" style="color:var(--yellow)">GitHub</span><span class="bdg by">Trending</span><span class="nct" id="t-gh">—</span></div>
+        <div class="nb" id="list-gh"><div class="skel"></div><div class="skel" style="width:72%"></div></div>
+      </div>
+      <div class="nc">
+        <div class="nch"><span class="ncs">稀土掘金</span><span class="bdg br">热榜</span><span class="nct" id="t-xt">—</span></div>
+        <div class="nb" id="list-xt"></div>
+      </div>
+      <div class="nc">
+        <div class="nch"><span class="ncs">竞对动态</span><span class="bdg bg">RWA</span><span class="nct">每日更新</span></div>
+        <div class="nb" id="list-comp"></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══ MARKET ══ -->
+<div class="page" id="page-market">
+<div class="ps">
+  <div class="ph"><span class="pt">市场总览</span><div class="sp"></div><button class="abtn" onclick="loadMarket()">↻ 刷新</button></div>
+
+  <div class="stit">加密货币</div>
+  <div class="sg4">
+    <div class="sc" onclick="openCoin('bitcoin','Bitcoin')"><div class="sc-l">₿ Bitcoin</div><div class="sc-v" id="m-btc" style="color:var(--yellow)">加载中</div><div class="sc-s" id="m-btc-c">—</div></div>
+    <div class="sc" onclick="openCoin('ethereum','Ethereum')"><div class="sc-l">Ξ Ethereum</div><div class="sc-v" id="m-eth" style="color:var(--blue)">加载中</div><div class="sc-s" id="m-eth-c">—</div></div>
+    <div class="sc" onclick="openCoin('solana','Solana')"><div class="sc-l">◎ Solana</div><div class="sc-v" id="m-sol" style="color:#9945ff">加载中</div><div class="sc-s" id="m-sol-c">—</div></div>
+    <div class="sc"><div class="sc-l">😨 恐慌贪婪指数</div><div class="sc-v" id="m-fg" style="color:var(--yellow)">加载中</div><div class="sc-s" id="m-fg-l">—</div></div>
+  </div>
+
+  <div class="stit">中国股市（东财实时）</div>
+  <div class="sg4">
+    <div class="sc"><div class="sc-l">🇨🇳 上证指数</div><div class="sc-v" id="m-sh" style="color:var(--red)">加载中</div><div class="sc-s" id="m-sh-c">—</div></div>
+    <div class="sc"><div class="sc-l">🇨🇳 深证成指</div><div class="sc-v" id="m-sz">加载中</div><div class="sc-s" id="m-sz-c">—</div></div>
+    <div class="sc"><div class="sc-l">🇨🇳 创业板指</div><div class="sc-v" id="m-cy">加载中</div><div class="sc-s" id="m-cy-c">—</div></div>
+    <div class="sc"><div class="sc-l">🇨🇳 沪深300</div><div class="sc-v" id="m-hs3">加载中</div><div class="sc-s" id="m-hs3-c">—</div></div>
+  </div>
+
+  <div class="stit">美股</div>
+  <div class="sg4">
+    <div class="sc"><div class="sc-l">🇺🇸 S&P 500</div><div class="sc-v" style="color:var(--red)">6,824.66</div><div class="sc-s" style="color:var(--red)">▲ +0.62%</div></div>
+    <div class="sc"><div class="sc-l">🇺🇸 纳斯达克</div><div class="sc-v" style="color:var(--red)">22,822.42</div><div class="sc-s" style="color:var(--red)">▲ +0.83%</div></div>
+    <div class="sc"><div class="sc-l">🇺🇸 道琼斯</div><div class="sc-v" style="color:var(--red)">48,185.80</div><div class="sc-s" style="color:var(--red)">▲ +0.58%</div></div>
+    <div class="sc"><div class="sc-l">🇺🇸 VIX 恐慌指数</div><div class="sc-v" style="color:var(--green)">19.49</div><div class="sc-s" style="color:var(--green)">▼ -24.4% 正常区间</div></div>
+  </div>
+
+  <div class="stit">全球股市</div>
+  <div class="sg4">
+    <div class="sc"><div class="sc-l">🇯🇵 日经225</div><div class="sc-v" style="color:var(--red)">56,739</div><div class="sc-s" style="color:var(--red)">▲ +1.51%</div></div>
+    <div class="sc"><div class="sc-l">🇭🇰 恒生指数</div><div class="sc-v" style="color:var(--red)">25,988</div><div class="sc-s" style="color:var(--red)">▲ +0.92%</div></div>
+    <div class="sc"><div class="sc-l">🇰🇷 韩国KOSPI</div><div class="sc-v" style="color:var(--red)">5,886</div><div class="sc-s" style="color:var(--red)">▲ +1.87%</div></div>
+    <div class="sc"><div class="sc-l">🇩🇪 德国DAX</div><div class="sc-v" style="color:var(--green)">23,806</div><div class="sc-s" style="color:var(--green)">▼ -1.14%</div></div>
+  </div>
+
+  <div class="stit">大宗商品</div>
+  <div class="sg4">
+    <div class="sc"><div class="sc-l">🥇 黄金 XAU/USD</div><div class="sc-v" id="m-gold" style="color:var(--yellow)">加载中</div><div class="sc-s" id="m-gold-c">—</div></div>
+    <div class="sc"><div class="sc-l">🛢 布伦特原油</div><div class="sc-v" style="color:var(--red)">$96.58</div><div class="sc-s" style="color:var(--red)">▲ +0.69%</div></div>
+    <div class="sc"><div class="sc-l">🛢 WTI 原油</div><div class="sc-v" id="m-oil" style="color:var(--red)">加载中</div><div class="sc-s" id="m-oil-c">—</div></div>
+    <div class="sc"><div class="sc-l">🥈 白银 XAG/USD</div><div class="sc-v" style="color:var(--text)">$27.42</div><div class="sc-s" style="color:var(--green)">▼ -0.8%</div></div>
+  </div>
+
+  <div class="cs">
+    <div class="ch">
+      <span class="ct" id="mc-t">Bitcoin (BTC)</span>
+      <span class="cp" id="mc-p" style="color:var(--yellow)">加载中</span>
+      <span id="mc-c" style="font-family:var(--mono);font-size:11px"></span>
+      <div class="sp"></div>
+      <div class="pg">
+        <button class="pill active" onclick="swp(this);loadMC('1')">1天</button>
+        <button class="pill" onclick="swp(this);loadMC('7')">7天</button>
+        <button class="pill" onclick="swp(this);loadMC('30')">1月</button>
+        <button class="pill" onclick="swp(this);loadMC('90')">3月</button>
+        <button class="pill" onclick="swp(this);loadMC('365')">1年</button>
+        <button class="pill" onclick="swp(this);loadMC('max')">全部</button>
+      </div>
+    </div>
+    <div class="cb" id="mc-b"><div class="cl-msg">加载中...</div></div>
+  </div>
+</div></div>
+
+<!-- ══ CRYPTO ══ -->
+<div class="page" id="page-crypto">
+<div class="ps">
+  <div class="ph">
+    <span class="pt">加密货币</span>
+    <div class="pg">
+      <button class="pill active" onclick="swp(this);loadCrypto('all')">总排行</button>
+      <button class="pill" onclick="swp(this);loadCrypto('mcap')">市值排行</button>
+      <button class="pill" onclick="swp(this);loadCrypto('layer1')">Layer1</button>
+      <button class="pill" onclick="swp(this);loadCrypto('layer2')">Layer2</button>
+      <button class="pill" onclick="swp(this);loadCrypto('defi')">DeFi</button>
+      <button class="pill" onclick="swp(this);loadCrypto('web3')">Web3</button>
+      <button class="pill" onclick="swp(this);loadCrypto('meme')">Meme</button>
+      <button class="pill" onclick="swp(this);loadCrypto('gamefi')">GameFi</button>
+      <button class="pill" onclick="swp(this);loadCrypto('rwa')">RWA</button>
+    </div>
+    <div class="sp"></div>
+    <span id="cr-count" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span>
+    <button class="abtn" onclick="loadCrypto(curCat)">↻</button>
+  </div>
+  <div class="ct-wrap">
+    <div class="ct-hdr"><span>#</span><span>名称</span><span style="text-align:right">价格</span><span style="text-align:right">24H</span><span style="text-align:right">7D</span><span style="text-align:right">市值</span><span style="text-align:right">来源</span></div>
+    <div id="ct-body"><div class="skel" style="margin:12px"></div><div class="skel" style="margin:12px;width:72%"></div></div>
+  </div>
+</div></div>
+
+<!-- ══ ONCHAIN ══ -->
+<div class="page" id="page-onchain">
+<div class="ps">
+  <div class="ph">
+    <span class="pt">BTC 链上数据</span>
+    <div class="sp"></div>
+    <a href="https://btc.x.fish/" target="_blank" class="abtn" style="color:var(--accent);border-color:rgba(0,208,132,.3)">↗ btc.x.fish</a>
+    <button class="abtn" onclick="loadOnchain()">↻ 刷新</button>
+  </div>
+  <!-- Fear & Greed -->
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:14px;margin-bottom:12px;display:flex;align-items:center;gap:20px">
+    <div>
+      <div style="font-family:var(--mono);font-size:40px;font-weight:700" id="fg-num">—</div>
+      <div style="font-size:13px;font-weight:600;margin-top:2px" id="fg-lab">加载中</div>
+    </div>
+    <svg viewBox="0 0 80 50" style="width:80px;height:50px;flex-shrink:0">
+      <path d="M10 45 A30 30 0 0 1 70 45" fill="none" stroke="#21262d" stroke-width="8" stroke-linecap="round"/>
+      <path id="fg-arc" d="M10 45 A30 30 0 0 1 70 45" fill="none" stroke="var(--yellow)" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 94"/>
+    </svg>
+    <div style="flex:1">
+      <div style="font-size:11px;font-weight:600;margin-bottom:4px">恐慌贪婪指数 · Fear & Greed</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.6" id="fg-desc">0=极度恐慌，100=极度贪婪。极度恐慌通常是买入机会。</div>
+    </div>
+    <div style="text-align:right;font-size:10px;color:var(--text3);font-family:var(--mono);line-height:1.8">
+      昨日 <span id="fg-y" style="color:var(--text)">—</span><br>
+      上周 <span id="fg-w" style="color:var(--text)">—</span><br>
+      上月 <span id="fg-m" style="color:var(--text)">—</span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px">
+    <div class="sc" onclick="window.open('https://btc.x.fish/','_blank')"><div class="sc-l">BTC 实时价格</div><div class="sc-v" id="oc-price" style="color:var(--yellow)">加载中</div><div class="sc-s" id="oc-price-c">OKX</div></div>
+    <div class="sc"><div class="sc-l">全网算力</div><div class="sc-v" id="oc-hash" style="color:var(--purple)">加载中</div><div class="sc-s">EH/s · mempool</div></div>
+    <div class="sc"><div class="sc-l">当前区块高度</div><div class="sc-v" id="oc-block" style="color:var(--blue)">加载中</div><div class="sc-s" id="oc-block-s">—</div></div>
+    <div class="sc"><div class="sc-l">减半倒计时</div><div class="sc-v" id="oc-halving" style="color:var(--orange)">加载中</div><div class="sc-s" id="oc-halving-s">—</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px">
+    <div class="sc"><div class="sc-l">200周均线 (200WMA)</div><div class="sc-v" id="oc-wma" style="color:var(--green)">计算中</div><div class="sc-s" id="oc-wma-s">OKX周线</div></div>
+    <div class="sc"><div class="sc-l">ahr999 定投指数</div><div class="sc-v" id="oc-ahr" style="color:var(--accent)">计算中</div><div class="sc-s" id="oc-ahr-s">—</div></div>
+    <div class="sc"><div class="sc-l">BTC 主导率</div><div class="sc-v" id="oc-dom" style="color:var(--yellow)">加载中</div><div class="sc-s" id="oc-dom-s">—</div></div>
+    <div class="sc"><div class="sc-l">总加密市值</div><div class="sc-v" id="oc-mcap" style="color:var(--blue)">加载中</div><div class="sc-s">CoinGecko</div></div>
+  </div>
+  <div class="sg3">
+    <div class="sc"><div class="sc-l">MSTR mNAV (Strategy)</div><div class="sc-v" style="color:var(--orange)">1.10x</div><div class="sc-s">BTC 766,970枚 | $128.86</div></div>
+    <div class="sc"><div class="sc-l">矿工均成本</div><div class="sc-v" style="color:var(--purple)">~$72,950</div><div class="sc-s">关机价 $48,633 (@$0.05)</div></div>
+    <div class="sc"><div class="sc-l">均衡价格 (Balanced Price)</div><div class="sc-v" id="oc-bp" style="color:var(--green)">计算中</div><div class="sc-s" id="oc-bp-s">—</div></div>
+  </div>
+  <div class="cs">
+    <div class="ch">
+      <span class="ct">BTC 价格走势</span>
+      <span class="cp" id="oc-cp" style="color:var(--yellow)">—</span>
+      <span id="oc-cc" style="font-family:var(--mono);font-size:11px"></span>
+      <div class="sp"></div>
+      <div class="pg">
+        <button class="pill" onclick="swp(this);loadOCChart('7')">7天</button>
+        <button class="pill active" onclick="swp(this);loadOCChart('30')">30天</button>
+        <button class="pill" onclick="swp(this);loadOCChart('90')">90天</button>
+        <button class="pill" onclick="swp(this);loadOCChart('365')">1年</button>
+      </div>
+    </div>
+    <div class="cb" id="oc-chart"><div class="cl-msg">加载中...</div></div>
+  </div>
+</div></div>
+
+<!-- ══ SECTOR ══ -->
+<div class="page" id="page-sector">
+<div class="ps">
+  <div class="ph">
+    <span class="pt">板块行情</span>
+    <div class="pg">
+      <button class="pill active" onclick="swp(this);renderSectors('A股')">A股</button>
+      <button class="pill" onclick="swp(this);renderSectors('美股')">美股</button>
+      <button class="pill" onclick="swp(this);renderSectors('大宗')">大宗商品</button>
+      <button class="pill" onclick="swp(this);renderSectors('全球')">全球指数</button>
+    </div>
+  </div>
+  <div class="sec-grid" id="sec-g"></div>
+</div></div>
+
+<!-- ══ MSX ══ -->
+<div class="page" id="page-msx">
+<div class="ps">
+  <div class="ph">
+    <span class="pt" style="color:var(--accent)">◈ 麦通 MSX · RWA & ETF</span>
+    <div class="sp"></div>
+    <a href="https://msx.finance" target="_blank" class="abtn" style="color:var(--accent);border-color:rgba(0,208,132,.3)">↗ MSX 平台</a>
+    <a href="https://sosovalue.com/assets/etf/us-btc-spot" target="_blank" class="abtn" style="color:var(--yellow)">↗ ETF 数据</a>
+  </div>
+  <div class="sg4">
+    <div class="msx-stat"><div class="sc-l">24H 成交量</div><div class="sc-v" style="color:var(--accent)">$120.78M</div><div class="sc-s" style="color:var(--accent)">▲ +12.4%</div></div>
+    <div class="msx-stat"><div class="sc-l">RWA 总锁仓</div><div class="sc-v" style="color:var(--accent)">$29.61B</div><div class="sc-s">累计上链</div></div>
+    <div class="msx-stat"><div class="sc-l">RWA 代币数</div><div class="sc-v" style="color:var(--accent)">300+</div><div class="sc-s">已上线资产</div></div>
+    <div class="msx-stat"><div class="sc-l">注册用户</div><div class="sc-v" style="color:var(--accent)">180.1K</div><div class="sc-s" style="color:var(--accent)">▲ +2.1K 今日</div></div>
+  </div>
+
+  <div class="stit">📊 BTC 现货 ETF — 资金流向</div>
+  <div class="sg3" style="margin-bottom:10px">
+    <div class="sc"><div class="sc-l">今日 ETF 总净流入</div><div class="sc-v" id="etf-tot" style="color:var(--green)">计算中</div><div class="sc-s">合计</div></div>
+    <div class="sc"><div class="sc-l">ETF 总 AUM</div><div class="sc-v" style="color:var(--yellow)">$63.2B</div><div class="sc-s">总资产规模</div></div>
+    <div class="sc"><div class="sc-l">ETF 总 BTC 持仓</div><div class="sc-v" style="color:var(--yellow)">886,010 BTC</div><div class="sc-s">—</div></div>
+  </div>
+  <div class="etf-grid" id="etf-grid"></div>
+
+  <div class="stit">◈ RWA 赛道 & MSX 动态</div>
+  <div class="news-row news-row-3">
+    <div class="nc" style="border-color:rgba(0,208,132,.2)">
+      <div class="nch" style="background:rgba(0,208,132,.04)"><span class="ncs" style="color:var(--accent)">MSX 最新动态</span><span class="bdg bg">实时</span></div>
+      <div class="nb" id="list-msx"></div>
+    </div>
+    <div class="nc">
+      <div class="nch"><span class="ncs" style="color:var(--accent)">RWA 赛道</span><span class="bdg bg">点击进入</span></div>
+      <div class="nb" id="list-rwa"></div>
+    </div>
+    <div class="nc">
+      <div class="nch"><span class="ncs">加密实时行情</span><span class="bdg bg">OKX</span><span class="nct" id="t-msc">—</span></div>
+      <div class="nb" id="list-msc"><div class="skel"></div></div>
+    </div>
+  </div>
+
+  <div class="stit">🤖 MSX AI 可见度 <a href="https://msx-example.pages.dev/" target="_blank" class="geo-btn">GEO <span class="geo-q">?</span></a></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px">
+    <div class="sc" onclick="window.open('https://msx-example.pages.dev/','_blank')">
+      <div class="sc-l">综合 AI 可见度</div><div class="sc-v" style="color:var(--red)">28.6%</div>
+      <div class="sc-s" style="color:var(--text2)">7平台 · 35次测试</div>
+      <div class="geo-bar"><div class="geo-fill" style="width:28.6%;background:var(--red)"></div></div>
+    </div>
+    <div class="sc" onclick="window.open('https://msx-example.pages.dev/','_blank')">
+      <div class="sc-l">华语推荐率</div><div class="sc-v" style="color:var(--yellow)">35.7%</div>
+      <div class="sc-s" style="color:var(--text2)">Kimi 57.1%</div>
+      <div class="geo-bar"><div class="geo-fill" style="width:35.7%;background:var(--yellow)"></div></div>
+    </div>
+    <div class="sc" onclick="window.open('https://msx-example.pages.dev/','_blank')">
+      <div class="sc-l">Pre-IPO 场景</div><div class="sc-v" style="color:var(--green)">55%</div>
+      <div class="sc-s" style="color:var(--text2)">vs Republic 70%</div>
+      <div class="geo-bar"><div class="geo-fill" style="width:55%;background:var(--green)"></div></div>
+    </div>
+    <div class="sc" onclick="window.open('https://msx-example.pages.dev/','_blank')">
+      <div class="sc-l">vs Bitget 差距</div><div class="sc-v" style="color:var(--red)">-41.4%</div>
+      <div class="sc-s" style="color:var(--text2)">Bitget 70%</div>
+      <div class="geo-bar"><div class="geo-fill" style="width:41.4%;background:var(--red)"></div></div>
+    </div>
+  </div>
+</div></div>
+
+</div></div></div>
+
+<!-- DETAIL PANEL -->
+<div class="dov" id="dov" onclick="if(event.target===this)closeD()">
+<div class="dp" id="dp">
+  <div class="dph">
+    <div class="dpt" id="dp-t">—</div>
+    <button class="dpc" onclick="closeD()">✕</button>
+  </div>
+  <div class="dpsc">
+    <div class="dp-price" id="dp-p">—</div>
+    <div class="dp-meta" id="dp-meta">—</div>
+    <div id="dp-pb"></div>
+    <div class="dp-cw" id="dp-cw"><div style="height:200px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">加载中...</div></div>
+    <div class="dp-st" id="dp-s"></div>
+    <div id="dp-tags" style="margin-bottom:12px"></div>
+    <div class="dptit">相关链接</div>
+    <div id="dp-l"></div>
+  </div>
+</div></div>
+
+<div class="statusbar">
+  <div class="sbst"><div class="sbdot" style="background:var(--green)"></div>数据连接</div>
+  <div class="sbst"><div class="sbdot" style="background:var(--accent)"></div>MSX RWA</div>
+  <div class="sbst"><div class="sbdot" style="background:var(--yellow)"></div>ETF</div>
+  <div class="tw"><div class="tt" id="ticker">加载行情...</div></div>
+  <span style="flex-shrink:0">MktDesk v6.0</span>
+</div>
+
+<!-- ══ 模块化JS ══
+     每个文件负责一个功能模块，修改时只需动对应文件
+     加载顺序：config（配置+工具） → 各功能模块 → app（初始化）
+-->
+<script src="js/config.js"></script>   <!-- 配置、缓存、工具函数、导航 -->
+<script src="js/news.js"></script>     <!-- 热点追踪、新闻爬取、日历 -->
+<script src="js/market.js"></script>   <!-- 市场总览、恐慌贪婪、K线图 -->
+<script src="js/onchain.js"></script>  <!-- BTC链上数据 -->
+<script src="js/crypto.js"></script>   <!-- 加密货币列表、币种详情 -->
+<script src="js/sector.js"></script>   <!-- 板块行情 -->
+<script src="js/msx.js"></script>      <!-- MSX & ETF、详情面板 -->
+<script src="js/app.js"></script>      <!-- 自动刷新、初始化入口 -->
+</body>
+</html>
